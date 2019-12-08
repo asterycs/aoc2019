@@ -11,26 +11,26 @@ enum Mode {
 
 #[derive(Debug, Copy, Clone)]
 enum Op {
-    JumpIfTrue(isize, usize),
-    JumpIfFalse(isize, usize),
-    LessThan(isize, isize, usize),
-    Equals(isize, isize, usize),
-    Mult(isize, isize, usize),
-    Add(isize, isize, usize),
-    Store(usize),
-    Load(usize),
+    JumpIfTrue(isize),
+    JumpIfFalse(isize),
+    LessThan(isize, isize),
+    Equals(isize, isize),
+    Mult(isize, isize),
+    Add(isize, isize),
+    Store,
+    Load,
 }
 
 fn get_len(op: Op) -> usize {
     match op {
-        Op::JumpIfTrue(_, _) => 3,
-        Op::JumpIfFalse(_, _) => 3,
-        Op::LessThan(_, _, _) => 4,
-        Op::Equals(_, _, _) => 4,
-        Op::Mult(_, _, _) => 4,
-        Op::Add(_, _, _) => 4,
-        Op::Store(_) => 2,
-        Op::Load(_) => 2,
+        Op::JumpIfTrue(_) => 3,
+        Op::JumpIfFalse(_) => 3,
+        Op::LessThan(_, _) => 4,
+        Op::Equals(_, _) => 4,
+        Op::Mult(_, _) => 4,
+        Op::Add(_, _) => 4,
+        Op::Store => 2,
+        Op::Load => 2,
     }
 }
 
@@ -38,6 +38,7 @@ fn get_len(op: Op) -> usize {
 struct Instruction {
     modes: [Mode; 3],
     op: Op,
+    target_addr: usize,
 }
 
 impl Instruction {
@@ -63,6 +64,7 @@ impl Instruction {
         }
 
         let op;
+        let target_addr;
         match program[stackptr]
             .to_string()
             .chars()
@@ -86,21 +88,21 @@ impl Instruction {
                         Mode::Position => program[program[stackptr + 2] as usize],
                     };
 
-                    let c = program[stackptr + 3] as usize;
+                    target_addr = program[stackptr + 3] as usize;
 
                     match opcode {
-                        1 => op = Op::Add(a, b, c),
-                        2 => op = Op::Mult(a, b, c),
-                        7 => op = Op::LessThan(a, b, c),
-                        8 => op = Op::Equals(a, b, c),
+                        1 => op = Op::Add(a, b),
+                        2 => op = Op::Mult(a, b),
+                        7 => op = Op::LessThan(a, b),
+                        8 => op = Op::Equals(a, b),
                         _ => unreachable!(),
                     }
                 }
                 3 | 4 => {
-                    let c = program[stackptr + 1] as usize;
+                    target_addr = program[stackptr + 1] as usize;
                     match opcode {
-                        3 => op = Op::Store(c),
-                        4 => op = Op::Load(c),
+                        3 => op = Op::Store,
+                        4 => op = Op::Load,
                         _ => unreachable!(),
                     };
                 }
@@ -109,14 +111,14 @@ impl Instruction {
                         Mode::Immediate => program[stackptr + 1],
                         Mode::Position => program[program[stackptr + 1] as usize],
                     };
-                    let c = match modes[1] {
+                    target_addr = match modes[1] {
                         Mode::Immediate => program[stackptr + 2],
                         Mode::Position => program[program[stackptr + 2] as usize],
                     } as usize;
 
                     match opcode {
-                        5 => op = Op::JumpIfTrue(a, c),
-                        6 => op = Op::JumpIfFalse(a, c),
+                        5 => op = Op::JumpIfTrue(a),
+                        6 => op = Op::JumpIfFalse(a),
                         _ => unreachable!(),
                     };
                 }
@@ -125,7 +127,11 @@ impl Instruction {
             _ => panic!("Invalid opcode"),
         }
 
-        Instruction { modes, op }
+        Instruction {
+            modes,
+            op,
+            target_addr,
+        }
     }
 }
 
@@ -136,20 +142,7 @@ fn run(mut program: Vec<isize>) -> isize {
         if program[stackptr] != 99 {
             let instr = Instruction::new(&program, stackptr);
 
-            let target_addr;
-            match instr.op {
-                // TODO: Move c to separate field in Instruction
-                Op::Add(_, _, c) => target_addr = c,
-                Op::Mult(_, _, c) => target_addr = c,
-                Op::Store(c) => target_addr = c,
-                Op::Load(c) => target_addr = c,
-                Op::JumpIfTrue(_, c) => target_addr = c,
-                Op::JumpIfFalse(_, c) => target_addr = c,
-                Op::LessThan(_, _, c) => target_addr = c,
-                Op::Equals(_, _, c) => target_addr = c,
-            };
-
-            let mut next = if stackptr == target_addr {
+            let mut next = if stackptr == instr.target_addr {
                 stackptr
             } else {
                 stackptr + get_len(instr.op)
@@ -157,34 +150,34 @@ fn run(mut program: Vec<isize>) -> isize {
 
             match instr.op {
                 // TODO: Move to method
-                Op::Add(a, b, c) => program[c] = a + b,
-                Op::Mult(a, b, c) => program[c] = a * b,
-                Op::Store(c) => {
+                Op::Add(a, b) => program[instr.target_addr] = a + b,
+                Op::Mult(a, b) => program[instr.target_addr] = a * b,
+                Op::Store => {
                     let read = &mut String::new();
                     io::stdin().read_line(read).expect("malformed input");
-                    program[c] = read.trim().parse::<isize>().unwrap();
+                    program[instr.target_addr] = read.trim().parse::<isize>().unwrap();
                 }
-                Op::Load(c) => println!("{}", program[c]),
-                Op::JumpIfTrue(a, c) => match a {
+                Op::Load => println!("{}", program[instr.target_addr]),
+                Op::JumpIfTrue(a) => match a {
                     0 => (),
-                    _ => next = c,
+                    _ => next = instr.target_addr,
                 },
-                Op::JumpIfFalse(a, c) => match a {
-                    0 => next = c,
+                Op::JumpIfFalse(a) => match a {
+                    0 => next = instr.target_addr,
                     _ => (),
                 },
-                Op::LessThan(a, b, c) => {
+                Op::LessThan(a, b) => {
                     if a < b {
-                        program[c] = 1;
+                        program[instr.target_addr] = 1;
                     } else {
-                        program[c] = 0;
+                        program[instr.target_addr] = 0;
                     }
                 }
-                Op::Equals(a, b, c) => {
+                Op::Equals(a, b) => {
                     if a == b {
-                        program[c] = 1;
+                        program[instr.target_addr] = 1;
                     } else {
-                        program[c] = 0;
+                        program[instr.target_addr] = 0;
                     }
                 }
             }
