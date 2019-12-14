@@ -19,33 +19,31 @@ enum Op {
     Add(isize, isize),
     Read,
     Write,
+    Halt,
 }
 
-/*trait Op {
-    fn execute(&self) -> isize;
-    fn get_len(&self) -> usize;
-}
-
-struct JumpIfTrue(isize);
-
-impl Op for JumpIfTrue {
-    fn execute(&self) {
-        if a != 0 {
-            true
-        }else
+impl Op {
+    fn get_len(&self) -> usize {
+        match self {
+            Op::JumpIfTrue(_) => 3,
+            Op::JumpIfFalse(_) => 3,
+            Op::LessThan(_, _) => 4,
+            Op::Equals(_, _) => 4,
+            Op::Mult(_, _) => 4,
+            Op::Add(_, _) => 4,
+            Op::Read => 2,
+            Op::Write => 2,
+            Op::Halt => 2,
+        }
     }
-}*/
+}
 
-fn get_len(op: Op) -> usize {
-    match op {
-        Op::JumpIfTrue(_) => 3,
-        Op::JumpIfFalse(_) => 3,
-        Op::LessThan(_, _) => 4,
-        Op::Equals(_, _) => 4,
-        Op::Mult(_, _) => 4,
-        Op::Add(_, _) => 4,
-        Op::Read => 2,
-        Op::Write => 2,
+impl Mode {
+    fn get(&self, program: &Vec<isize>, stackptr: usize) -> isize {
+        match self {
+            Mode::Immediate => program[stackptr],
+            Mode::Position => program[program[stackptr] as usize],
+        }
     }
 }
 
@@ -94,14 +92,8 @@ impl Instruction {
             Ok(opcode) => match opcode {
                 // idea for next time: Parse the operation beforehand into an enum OpType {One(opcode), Three(opcode)}
                 1 | 2 | 7 | 8 => {
-                    let a = match modes[0] {
-                        Mode::Immediate => program[stackptr + 1],
-                        Mode::Position => program[program[stackptr + 1] as usize],
-                    };
-                    let b = match modes[1] {
-                        Mode::Immediate => program[stackptr + 2],
-                        Mode::Position => program[program[stackptr + 2] as usize],
-                    };
+                    let a = modes[0].get(program, stackptr + 1);
+                    let b = modes[1].get(program, stackptr + 2);
 
                     target_addr = program[stackptr + 3] as usize;
 
@@ -122,20 +114,18 @@ impl Instruction {
                     };
                 }
                 5 | 6 => {
-                    let a = match modes[0] {
-                        Mode::Immediate => program[stackptr + 1],
-                        Mode::Position => program[program[stackptr + 1] as usize],
-                    };
-                    target_addr = match modes[1] {
-                        Mode::Immediate => program[stackptr + 2],
-                        Mode::Position => program[program[stackptr + 2] as usize],
-                    } as usize;
+                    let a = modes[0].get(program, stackptr + 1);
+                    target_addr = modes[1].get(program, stackptr + 2) as usize;
 
                     match opcode {
                         5 => op = Op::JumpIfTrue(a),
                         6 => op = Op::JumpIfFalse(a),
                         _ => unreachable!(),
                     };
+                }
+                99 => {
+                    target_addr = 0;
+                    op = Op::Halt;
                 }
                 _ => panic!("Unknown opcode: {}", opcode),
             },
@@ -152,7 +142,7 @@ impl Instruction {
 
 #[derive(Debug, Clone)]
 enum ExecutionStatus {
-    Ok,
+    Waiting,
     Halt,
 }
 
@@ -166,7 +156,7 @@ struct ProgramState {
 impl ProgramState {
     fn new(program: Vec<isize>) -> ProgramState {
         ProgramState {
-            status: ExecutionStatus::Ok,
+            status: ExecutionStatus::Waiting,
             stackptr: 0,
             program,
         }
@@ -178,70 +168,56 @@ fn step(
     input_queue: &mut VecDeque<isize>,
     output_queue: &mut VecDeque<isize>,
 ) {
-    let mut hasRead = false;
-    let mut hasWritten = false;
+    let mut has_read = false;
+    let mut has_written = false;
     while state.stackptr < state.program.len() {
-        if state.program[state.stackptr] != 99 {
-            let instr = Instruction::new(&state.program, state.stackptr);
+        let instr = Instruction::new(&state.program, state.stackptr);
 
-            let mut next = if state.stackptr == instr.target_addr {
-                state.stackptr
-            } else {
-                state.stackptr + get_len(instr.op)
-            };
-
-            println!("state.stackptr {}", state.stackptr);
-            println!("next: {}", next);
-            println!("intr: {:?}", instr.op);
-
-            match instr.op {
-                // TODO: Move to method
-                Op::Add(a, b) => state.program[instr.target_addr] = a + b,
-                Op::Mult(a, b) => state.program[instr.target_addr] = a * b,
-                Op::Read => {
-                    state.program[instr.target_addr] =
-                        input_queue.pop_front().expect("Missing input");
-                    hasRead = true;
-                }
-                Op::Write => {
-                    output_queue.push_back(state.program[instr.target_addr]);
-                    hasWritten = true;
-                }
-                Op::JumpIfTrue(a) => match a {
-                    0 => (),
-                    _ => next = instr.target_addr,
-                },
-                Op::JumpIfFalse(a) => match a {
-                    0 => next = instr.target_addr,
-                    _ => (),
-                },
-                Op::LessThan(a, b) => {
-                    if a < b {
-                        state.program[instr.target_addr] = 1;
-                    } else {
-                        state.program[instr.target_addr] = 0;
-                    }
-                }
-                Op::Equals(a, b) => {
-                    if a == b {
-                        state.program[instr.target_addr] = 1;
-                    } else {
-                        state.program[instr.target_addr] = 0;
-                    }
-                }
-            }
-
-            state.stackptr = next;
-
-            if hasRead && hasWritten {
-                state.status = ExecutionStatus::Ok;
-                return;
-            } else {
-                continue;
-            }
+        let mut next = if state.stackptr == instr.target_addr {
+            state.stackptr
         } else {
-            state.status = ExecutionStatus::Halt;
+            state.stackptr + instr.op.get_len()
+        };
+
+        println!("state.stackptr {}", state.stackptr);
+        println!("next: {}", next);
+        println!("intr: {:?}", instr.op);
+
+        match instr.op {
+            // TODO: Move to method
+            Op::Add(a, b) => state.program[instr.target_addr] = a + b,
+            Op::Mult(a, b) => state.program[instr.target_addr] = a * b,
+            Op::Read => {
+                state.program[instr.target_addr] = input_queue.pop_front().expect("Missing input");
+                has_read = true;
+            }
+            Op::Write => {
+                output_queue.push_back(state.program[instr.target_addr]);
+                has_written = true;
+            }
+            Op::JumpIfTrue(a) => match a {
+                0 => (),
+                _ => next = instr.target_addr,
+            },
+            Op::JumpIfFalse(a) => match a {
+                0 => next = instr.target_addr,
+                _ => (),
+            },
+            Op::LessThan(a, b) => state.program[instr.target_addr] = if a < b { 1 } else { 0 },
+            Op::Equals(a, b) => state.program[instr.target_addr] = if a == b { 1 } else { 0 },
+            Op::Halt => {
+                state.status = ExecutionStatus::Halt;
+                return;
+            }
+        }
+
+        state.stackptr = next;
+
+        if has_read && has_written {
+            state.status = ExecutionStatus::Waiting;
             return;
+        } else {
+            continue;
         }
     }
 
@@ -338,7 +314,7 @@ fn main() {
                 _ => (),
             }
 
-            if (output_queue.len() > 0) {
+            if output_queue.len() > 0 {
                 input_queue.push_front(output_queue.pop_back().unwrap());
             }
 
