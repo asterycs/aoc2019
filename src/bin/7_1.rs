@@ -1,6 +1,6 @@
+use std::collections::VecDeque;
 use std::env;
 use std::fs;
-use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, Copy, Clone)]
@@ -150,7 +150,11 @@ impl Instruction {
     }
 }
 
-fn run(mut program: Vec<isize>) -> isize {
+fn run(
+    mut program: Vec<isize>,
+    input_queue: &mut VecDeque<isize>,
+    output_queue: &mut VecDeque<isize>,
+) -> isize {
     let mut stackptr: usize = 0;
 
     while stackptr < program.len() {
@@ -167,12 +171,8 @@ fn run(mut program: Vec<isize>) -> isize {
                 // TODO: Move to method
                 Op::Add(a, b) => program[instr.target_addr] = a + b,
                 Op::Mult(a, b) => program[instr.target_addr] = a * b,
-                Op::Store => {
-                    let read = &mut String::new();
-                    io::stdin().read_line(read).expect("malformed input");
-                    program[instr.target_addr] = read.trim().parse::<isize>().unwrap();
-                }
-                Op::Load => println!("{}", program[instr.target_addr]),
+                Op::Store => program[instr.target_addr] = input_queue.pop_front().unwrap(),
+                Op::Load => output_queue.push_back(program[instr.target_addr]),
                 Op::JumpIfTrue(a) => match a {
                     0 => (),
                     _ => next = instr.target_addr,
@@ -206,18 +206,95 @@ fn run(mut program: Vec<isize>) -> isize {
     return program[0];
 }
 
+#[derive(Debug, Clone)]
+struct Permuter {
+    x: Vec<isize>,
+    c: Vec<usize>,
+    i: usize,
+}
+
+impl Permuter {
+    fn new(init: Vec<isize>) -> Permuter {
+        Permuter {
+            c: vec![0; init.len()],
+            x: init,
+            i: 0,
+        }
+    }
+
+    // https://en.wikipedia.org/wiki/Heap%27s_algorithm
+    fn next(&self) -> Option<Permuter> {
+        let mut x = self.x.clone();
+        let mut c = self.c.clone();
+
+        let mut i = self.i;
+        while i < x.len() {
+            if c[i] < i {
+                if i % 2 == 0 {
+                    let tmp = x[0];
+                    x[0] = x[i];
+                    x[i] = tmp;
+                } else {
+                    let tmp = x[c[i]];
+                    x[c[i]] = x[i];
+                    x[i] = tmp;
+                }
+
+                c[i] += 1;
+                i = 0;
+
+                return Some(Permuter { x, c, i });
+            } else {
+                c[i] = 0;
+                i += 1;
+            }
+        }
+
+        None
+    }
+}
+
 fn main() {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/5_1.txt");
+    filename.push("inputs/7_1.txt");
 
     println!("Reading {}", filename.display());
 
     let input = fs::read_to_string(filename).expect("Unable to open file");
 
-    let program = &mut input
+    let program = input
         .split(",")
         .map(|x| x.parse::<isize>().unwrap())
         .collect::<Vec<_>>();
 
-    let res = run(program.clone());
+    let mut x = Permuter::new(vec![0, 1, 2, 3, 4]);
+
+    let mut max_sequence = x.clone();
+    let mut max_power: isize = 0;
+
+    loop {
+        let mut input_queue: VecDeque<isize> = VecDeque::new();
+        let mut output_queue: VecDeque<isize> = vec![0].into_iter().collect();
+
+        for i in 0..5 {
+            input_queue.push_front(output_queue.pop_back().unwrap());
+            input_queue.push_front(x.x[i]);
+            let _res = run(program.clone(), &mut input_queue, &mut output_queue);
+        }
+
+        let power = output_queue.pop_back().unwrap();
+        if power > max_power {
+            max_power = power;
+            max_sequence = x.clone();
+        }
+
+        if let Some(p) = x.next() {
+            x = p;
+        } else {
+            break;
+        }
+    }
+
+    println!("maxPower: {}", max_power);
+    println!("maxSequence: {:?}", max_sequence);
 }
