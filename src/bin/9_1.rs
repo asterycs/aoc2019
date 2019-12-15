@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::env;
 use std::fs;
@@ -239,12 +240,6 @@ fn run(
         println!("op: {:?}", instr.op);
         println!("relative_base: {:?}", state.relative_base);
         println!("modes: {:?}", instr.modes);*/
-
-        if let Target::Addr(t, _) = instr.op {
-            if t >= state.program.len() {
-                state.program.resize(t + 1, 0);
-            }
-        };
 
         match instr.op {
             Target::Addr(addr, op) => match op {
