@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env;
 use std::fs;
@@ -73,41 +73,29 @@ impl Target {
 }
 
 impl Mode {
-    fn get_value(&self, program: &mut Vec<isize>, stackptr: usize, relative_base: isize) -> isize {
+    fn get_value(&self, program: &HashMap<usize, isize>, stackptr: usize, relative_base: isize) -> isize {
         match self {
-            Mode::Immediate => program[stackptr],
+            Mode::Immediate => program[&stackptr],
             Mode::Position => {
-                let t = program[stackptr] as usize;
-                if t > program.len() {
-                    program.resize(t + 1, 0);
-                }
-                program[t]
+                let t = program[&stackptr] as usize;
+                program[&t]
             }
             Mode::Relative => {
-                let t = (program[stackptr] + relative_base as isize) as usize;
-                if t >= program.len() {
-                    program.resize(t + 1, 0);
-                }
-                program[t]
+                let t = (program[&stackptr] + relative_base as isize) as usize;
+                program[&t]
             }
         }
     }
 
-    fn get_addr(&self, program: &mut Vec<isize>, stackptr: usize, relative_base: isize) -> usize {
+    fn get_addr(&self, program: &HashMap<usize, isize>, stackptr: usize, relative_base: isize) -> usize {
         match self {
             Mode::Immediate => panic!("Invalid mode!"),
             Mode::Position => {
-                let t = program[stackptr] as usize;
-                if t > program.len() {
-                    program.resize(t + 1, 0);
-                }
+                let t = program[&stackptr] as usize;
                 t
             }
             Mode::Relative => {
-                let t = (program[stackptr] + relative_base as isize) as usize;
-                if t >= program.len() {
-                    program.resize(t + 1, 0);
-                }
+                let t = (program[&stackptr] + relative_base as isize) as usize;
                 t
             }
         }
@@ -121,12 +109,12 @@ struct Instruction {
 }
 
 impl Instruction {
-    fn new(state: &mut ProgramState) -> Instruction {
-        let p = &mut state.program;
+    fn next(state: &ProgramState) -> Instruction {
+        let p = &state.memory;
         let sp = state.stackptr;
 
         let mut modes = [Mode::Position; 3];
-        for (i, c) in p[sp].to_string().chars().rev().skip(2).enumerate() {
+        for (i, c) in p[&sp].to_string().chars().rev().skip(2).enumerate() {
             if i > 2 {
                 break;
             }
@@ -135,7 +123,7 @@ impl Instruction {
         }
 
         let op;
-        match p[sp]
+        match p[&sp]
             .to_string()
             .chars()
             .rev()
@@ -206,16 +194,16 @@ struct ProgramState {
     status: ExecutionStatus,
     stackptr: usize,
     relative_base: isize,
-    program: Vec<isize>,
+    memory: HashMap<usize, isize>,
 }
 
 impl ProgramState {
-    fn new(program: Vec<isize>) -> ProgramState {
+    fn new(program: &Vec<isize>) -> ProgramState {
         ProgramState {
             status: ExecutionStatus::Waiting,
             stackptr: 0,
             relative_base: 0,
-            program,
+            memory: program.iter().enumerate().map(|(i,x)| (i,x.clone())).collect(),
         }
     }
 }
@@ -225,8 +213,8 @@ fn run(
     input_queue: &mut VecDeque<isize>,
     output_queue: &mut VecDeque<isize>,
 ) {
-    while state.stackptr < state.program.len() {
-        let instr = Instruction::new(state);
+    while state.stackptr < state.memory.len() {
+        let instr = Instruction::next(state);
 
         let mut next = state.stackptr + instr.op.get_len();
         if let Target::Addr(t, _) = instr.op {
@@ -243,11 +231,11 @@ fn run(
 
         match instr.op {
             Target::Addr(addr, op) => match op {
-                Op::Add(a, b) => state.program[addr] = a + b,
-                Op::Mult(a, b) => state.program[addr] = a * b,
-                Op::LessThan(a, b) => state.program[addr] = if a < b { 1 } else { 0 },
-                Op::Equals(a, b) => state.program[addr] = if a == b { 1 } else { 0 },
-                Op::Input => state.program[addr] = input_queue.pop_front().expect("Missing input"),
+                Op::Add(a, b) => drop(state.memory.insert(addr, a + b)),
+                Op::Mult(a, b) => drop(state.memory.insert(addr, a * b)),
+                Op::LessThan(a, b) => drop(state.memory.insert(addr, if a < b { 1 } else { 0 })),
+                Op::Equals(a, b) => drop(state.memory.insert(addr, if a == b { 1 } else { 0 })),
+                Op::Input => drop(state.memory.insert(addr, input_queue.pop_front().expect("Missing input"))),
                 _ => unreachable!(),
             },
             Target::Value(val, op) => match op {
@@ -300,7 +288,7 @@ fn main() {
     let input_queue: &mut VecDeque<isize> = &mut vec![2].into_iter().collect();
     let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
 
-    let mut state = ProgramState::new(program);
+    let mut state = ProgramState::new(&program);
 
     run(&mut state, &mut *input_queue, &mut *output_queue);
 
