@@ -21,21 +21,6 @@ enum Op {
     Load,
 }
 
-/*trait Op {
-    fn execute(&self) -> isize;
-    fn get_len(&self) -> usize;
-}
-
-struct JumpIfTrue(isize);
-
-impl Op for JumpIfTrue {
-    fn execute(&self) {
-        if a != 0 {
-            true
-        }else
-    }
-}*/
-
 fn get_len(op: Op) -> usize {
     match op {
         Op::JumpIfTrue(_) => 3,
