@@ -1,8 +1,5 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 
 #[derive(Debug, Copy, Clone)]
 enum Mode {
@@ -78,11 +75,11 @@ impl Mode {
             Mode::Immediate => program[&stackptr],
             Mode::Position => {
                 let t = program[&stackptr] as usize;
-                program[&t]
+                *program.get(&t).unwrap_or(&0)
             }
             Mode::Relative => {
                 let t = (program[&stackptr] + relative_base as isize) as usize;
-                program[&t]
+                *program.get(&t).unwrap_or(&0)
             }
         }
     }
@@ -183,22 +180,22 @@ impl Instruction {
 }
 
 #[derive(Debug, Clone)]
-enum ExecutionStatus {
+pub enum ExecutionStatus {
     Waiting,
     Halt,
     Error,
 }
 
 #[derive(Debug, Clone)]
-struct ProgramState {
-    status: ExecutionStatus,
+pub struct ProgramState {
+    pub status: ExecutionStatus,
     stackptr: usize,
     relative_base: isize,
-    memory: HashMap<usize, isize>,
+    pub memory: HashMap<usize, isize>,
 }
 
 impl ProgramState {
-    fn new(program: &Vec<isize>) -> ProgramState {
+    pub fn new(program: &Vec<isize>) -> ProgramState {
         ProgramState {
             status: ExecutionStatus::Waiting,
             stackptr: 0,
@@ -208,7 +205,7 @@ impl ProgramState {
     }
 }
 
-fn run(
+pub fn run(
     state: &mut ProgramState,
     input_queue: &mut VecDeque<isize>,
     output_queue: &mut VecDeque<isize>,
@@ -223,19 +220,20 @@ fn run(
             }
         };
 
-        /*println!("state.stackptr {}", state.stackptr);
-        println!("next: {}", next);
-        println!("op: {:?}", instr.op);
-        println!("relative_base: {:?}", state.relative_base);
-        println!("modes: {:?}", instr.modes);*/
-
         match instr.op {
             Target::Addr(addr, op) => match op {
                 Op::Add(a, b) => drop(state.memory.insert(addr, a + b)),
                 Op::Mult(a, b) => drop(state.memory.insert(addr, a * b)),
                 Op::LessThan(a, b) => drop(state.memory.insert(addr, if a < b { 1 } else { 0 })),
                 Op::Equals(a, b) => drop(state.memory.insert(addr, if a == b { 1 } else { 0 })),
-                Op::Input => drop(state.memory.insert(addr, input_queue.pop_front().expect("Missing input"))),
+                Op::Input => {
+                    if input_queue.is_empty() {
+                        state.status = ExecutionStatus::Waiting;
+                        return;
+                    }
+
+                    drop(state.memory.insert(addr, input_queue.pop_front().expect("Missing input")))
+                },
                 _ => unreachable!(),
             },
             Target::Value(val, op) => match op {
@@ -270,28 +268,4 @@ fn run(
 
     state.status = ExecutionStatus::Error;
     return;
-}
-
-fn main() {
-    let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/9_1.txt");
-
-    println!("Reading {}", filename.display());
-
-    let input = fs::read_to_string(filename).expect("Unable to open file");
-
-    let program = input
-        .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
-        .collect::<Vec<_>>();
-
-    let input_queue: &mut VecDeque<isize> = &mut vec![2].into_iter().collect();
-    let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
-
-    let mut state = ProgramState::new(&program);
-
-    run(&mut state, &mut *input_queue, &mut *output_queue);
-
-    println!("{:?}", input_queue);
-    println!("{:?}", output_queue);
 }
