@@ -70,7 +70,12 @@ impl Target {
 }
 
 impl Mode {
-    fn get_value(&self, program: &HashMap<usize, isize>, stackptr: usize, relative_base: isize) -> isize {
+    fn get_value(
+        &self,
+        program: &HashMap<usize, isize>,
+        stackptr: usize,
+        relative_base: isize,
+    ) -> isize {
         match self {
             Mode::Immediate => program[&stackptr],
             Mode::Position => {
@@ -84,7 +89,12 @@ impl Mode {
         }
     }
 
-    fn get_addr(&self, program: &HashMap<usize, isize>, stackptr: usize, relative_base: isize) -> usize {
+    fn get_addr(
+        &self,
+        program: &HashMap<usize, isize>,
+        stackptr: usize,
+        relative_base: isize,
+    ) -> usize {
         match self {
             Mode::Immediate => panic!("Invalid mode!"),
             Mode::Position => {
@@ -179,7 +189,7 @@ impl Instruction {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExecutionStatus {
     Waiting,
     Halt,
@@ -200,7 +210,11 @@ impl ProgramState {
             status: ExecutionStatus::Waiting,
             stackptr: 0,
             relative_base: 0,
-            memory: program.iter().enumerate().map(|(i,x)| (i,x.clone())).collect(),
+            memory: program
+                .iter()
+                .enumerate()
+                .map(|(i, x)| (i, x.clone()))
+                .collect(),
         }
     }
 }
@@ -232,8 +246,12 @@ pub fn run(
                         return;
                     }
 
-                    drop(state.memory.insert(addr, input_queue.pop_front().expect("Missing input")))
-                },
+                    drop(
+                        state
+                            .memory
+                            .insert(addr, input_queue.pop_front().expect("Missing input")),
+                    )
+                }
                 _ => unreachable!(),
             },
             Target::Value(val, op) => match op {
