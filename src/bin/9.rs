@@ -4,7 +4,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-use aoc::intcode::*;
+use intcode::*;
 
 fn main() {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());

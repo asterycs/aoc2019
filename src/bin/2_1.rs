@@ -27,14 +27,13 @@ fn main() {
             let b = program[i + 2];
             let c = program[i + 3];
 
-            let mut res;
-
-            match instr {
-                1 => res = program[a] + program[b],
-                2 => res = program[a] * program[b],
+            let res = match instr {
+                1 => program[a] + program[b],
+                2 => program[a] * program[b],
 
                 _ => panic!(),
-            }
+            };
+            
             program[c] = res;
 
             i += 4;
