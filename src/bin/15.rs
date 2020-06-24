@@ -126,7 +126,7 @@ impl SearchState {
         }
     }
 
-    fn advance(&mut self, program_state: &mut ProgramState, command: Command) -> CommandResult {
+    fn advance(&mut self, vm: &mut IntcodeVM, command: Command) -> CommandResult {
         let intcode_command = get_internal_command_code(command);
 
         let mut input_queue = vec![intcode_command as isize]
@@ -134,7 +134,7 @@ impl SearchState {
             .collect::<VecDeque<isize>>();
         let mut output_queue = &mut VecDeque::new();
 
-        run(program_state, &mut input_queue, &mut output_queue);
+        run(vm, &mut input_queue, &mut output_queue);
 
         let response = CommandResult::from(*output_queue.back().unwrap());
 
@@ -267,13 +267,13 @@ fn main() {
         .map(|x| x.parse::<isize>().unwrap())
         .collect::<Vec<_>>();
 
-    let mut program_state = ProgramState::new(program);
+    let mut vm = IntcodeVM::new(program);
     let mut search_state = SearchState::new();
     let mut command = Command::MoveNorth;
     let origin = Coord { x: 0, y: 0 };
 
     loop {
-        let result = search_state.advance(&mut program_state, command);
+        let result = search_state.advance(&mut vm, command);
 
         draw(&search_state);
 

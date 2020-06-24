@@ -77,10 +77,10 @@ fn main() {
         let mut output_queue: VecDeque<isize> = vec![0].into_iter().collect();
 
         for i in 0..5 {
-            let mut state = ProgramState::new(&program);
+            let mut vm = IntcodeVM::new(&program);
             input_queue.push_front(output_queue.pop_back().unwrap());
             input_queue.push_front(x.x[i]);
-            run(&mut state, &mut input_queue, &mut output_queue);
+            run(&mut vm, &mut input_queue, &mut output_queue);
         }
 
         let power = output_queue.pop_back().unwrap();

@@ -100,12 +100,12 @@ fn run_painter(init_tile_color: isize, program: &Vec<isize>) -> HashMap<(isize, 
     let input_queue: &mut VecDeque<isize> = &mut vec![init_tile_color].into_iter().collect();
     let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
 
-    let mut program_state = ProgramState::new(&program);
+    let mut program_state = IntcodeVM::new(&program);
     let mut robot_state = RobotState { x: 0, y: 0, dir: 0 };
     let mut hull: HashMap<(isize, isize), Color> = HashMap::new();
 
     loop {
-        run(&mut program_state, &mut *input_queue, &mut *output_queue);
+        let result = run(&mut program_state, &mut *input_queue, &mut *output_queue);
 
         let color = Color::from(output_queue.pop_front().unwrap());
         let direction = output_queue.pop_front().unwrap();
@@ -117,10 +117,9 @@ fn run_painter(init_tile_color: isize, program: &Vec<isize>) -> HashMap<(isize, 
 
         input_queue.push_back(hull.get(&(robot_state.x, robot_state.y)).unwrap_or(&Color::Black).into());
 
-        match program_state.status {
-            ExecutionStatus::Halt | ExecutionStatus::Error => break,
-            _ => continue,
-        }
+        if let Err(ExecutionError::Halted) = result {
+            break;
+        };
     }
 
     hull
