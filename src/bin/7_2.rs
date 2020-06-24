@@ -72,23 +72,31 @@ fn main() {
     let mut max_power: isize = 0;
 
     loop {
-        let states = &mut vec![
-            ProgramState::new(&program),
-            ProgramState::new(&program),
-            ProgramState::new(&program),
-            ProgramState::new(&program),
-            ProgramState::new(&program),
+        let vms = &mut [
+            IntcodeVM::new(&program),
+            IntcodeVM::new(&program),
+            IntcodeVM::new(&program),
+            IntcodeVM::new(&program),
+            IntcodeVM::new(&program)
         ];
+
+        let vm_status = &mut [
+            Result::Ok(()),
+            Result::Ok(()),
+            Result::Ok(()),
+            Result::Ok(()),
+            Result::Ok(()),
+        ];
+        
         let input_queue: &mut VecDeque<isize> = &mut VecDeque::new();
         let output_queue: &mut VecDeque<isize> = &mut vec![0].into_iter().collect();
 
         let mut i = 0;
         let mut round = 0;
         loop {
-            match states[i].status {
-                ExecutionStatus::Halt => break,
-                _ => (),
-            }
+            if let Err(ExecutionError::Halted) = vm_status[i] {
+                break;
+            };
 
             if output_queue.len() > 0 {
                 input_queue.push_front(output_queue.pop_back().unwrap());
@@ -98,7 +106,7 @@ fn main() {
                 input_queue.push_front(x.x[i]);
             }
 
-            run(&mut states[i], &mut *input_queue, &mut *output_queue);
+            vm_status[i] = run(&mut vms[i], &mut *input_queue, &mut *output_queue);
 
             i += 1;
 

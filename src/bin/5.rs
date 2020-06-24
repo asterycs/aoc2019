@@ -7,7 +7,7 @@ use intcode::*;
 
 fn main() {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/5_1.txt");
+    filename.push("inputs/5.txt");
 
     println!("Reading {}", filename.display());
 
@@ -18,19 +18,19 @@ fn main() {
         .map(|x| x.parse::<isize>().unwrap())
         .collect::<Vec<_>>();
 
-    let mut input_queue: VecDeque<isize> = vec![1].into_iter().collect();
-    let mut output_queue: VecDeque<isize> = VecDeque::new();
-    let mut state = ProgramState::new(&program);
+    let mut input_buffer = vec![1].into_iter().collect();
+    let mut output_buffer = VecDeque::new();
+    let mut vm = IntcodeVM::new(&program);
 
-    run(&mut state, &mut input_queue, &mut output_queue);
+    run(&mut vm, &mut input_buffer, &mut output_buffer);
 
-    println!("Part 1: {:?}", output_queue);
+    println!("Part 1: {:?}", output_buffer);
 
-    let mut input_queue: VecDeque<isize> = vec![5].into_iter().collect();
-    let mut output_queue: VecDeque<isize> = VecDeque::new();
-    let mut state = ProgramState::new(&program);
+    let mut input_buffer = vec![5].into_iter().collect();
+    let mut output_buffer = VecDeque::new();
+    let mut vm = IntcodeVM::new(&program);
 
-    run(&mut state, &mut input_queue, &mut output_queue);
+    run(&mut vm, &mut input_buffer, &mut output_buffer);
 
-    println!("Part 2: {:?}", output_queue);
+    println!("Part 2: {:?}", output_buffer);
 }

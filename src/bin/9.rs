@@ -22,16 +22,16 @@ fn main() {
     let input_queue: &mut VecDeque<isize> = &mut vec![1].into_iter().collect();
     let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
 
-    let mut state = ProgramState::new(&program);
-    run(&mut state, &mut *input_queue, &mut *output_queue);
+    let mut vm = IntcodeVM::new(&program);
+    run(&mut vm, &mut *input_queue, &mut *output_queue);
 
     println!("Part 1: {:?}", output_queue);
 
     let input_queue: &mut VecDeque<isize> = &mut vec![2].into_iter().collect();
     let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
 
-    let mut state = ProgramState::new(&program);
-    run(&mut state, &mut *input_queue, &mut *output_queue);
+    let mut vm = IntcodeVM::new(&program);
+    run(&mut vm, &mut *input_queue, &mut *output_queue);
 
     println!("Part 2: {:?}", output_queue);
 }

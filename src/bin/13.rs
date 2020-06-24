@@ -138,10 +138,9 @@ fn main() {
     // Part 1
     let input_queue = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
+    let mut vm = IntcodeVM::new(program);
 
-    let mut state = ProgramState::new(program);
-
-    run(&mut state, &mut *input_queue, &mut *output_queue);
+    run(&mut vm, &mut *input_queue, &mut *output_queue);
 
     let mut game_state = GameState::new();
     update_game_state(&output_queue, &mut game_state);
@@ -149,20 +148,19 @@ fn main() {
 
     // Part 2
     program[0] = 2;
-    let mut state = ProgramState::new(program);
-
     let input_queue = &mut vec![].into_iter().collect();
+    let mut vm = IntcodeVM::new(program);
 
     let mut game_state = GameState::new();
 
     loop {
         let output_queue = &mut VecDeque::new();
 
-        run(&mut state, &mut *input_queue, &mut *output_queue);
+        let result = run(&mut vm, &mut *input_queue, &mut *output_queue);
         update_game_state(&output_queue, &mut game_state);
         draw_game(&game_state);
 
-        if state.status == ExecutionStatus::Waiting {
+        if let Err(ExecutionError::EmptyInputBuffer) = result {
             let input = match game_state.paddle_pos.x.cmp(&game_state.ball_pos.x) {
                 Ordering::Less => 1,
                 Ordering::Equal => 0,
