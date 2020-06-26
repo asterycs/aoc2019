@@ -45,40 +45,40 @@ trait Instruction {
     fn get_len(&self) -> usize;
 }
 
-trait ValueExpression {
-    fn execute(&self) -> isize;
-    fn get_len(&self) -> usize;
-}
-
-struct Put {
+struct Add {
+    lhs: isize,
+    rhs: isize,
     dest: usize,
-    op: Box<dyn ValueExpression>,
 }
 
-impl Instruction for Put {
+impl Add {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let lhs = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let rhs = modes[1].get_value(p, ip + 2, vm.relative_base);
+        let dest = modes[2].get_addr(p, ip + 3, vm.relative_base);
+
+        Add {
+            lhs,
+            rhs,
+            dest,
+        }
+    }
+}
+
+
+impl Instruction for Add {
     fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
-        drop(vm.memory.insert(self.dest, self.op.execute()));
+        drop(vm.memory.insert(self.dest, self.lhs + self.rhs));
 
         if self.dest != vm.instruction_ptr {
             vm.instruction_ptr += self.get_len();
         }
 
         Ok(())
-    }
-
-    fn get_len(&self) -> usize {
-        self.op.get_len()
-    }
-}
-
-struct Add {
-    lhs: isize,
-    rhs: isize,
-}
-
-impl ValueExpression for Add {
-    fn execute(&self) -> isize {
-        self.lhs + self.rhs
     }
 
     fn get_len(&self) -> usize {
@@ -89,11 +89,36 @@ impl ValueExpression for Add {
 struct Mult {
     lhs: isize,
     rhs: isize,
+    dest: usize,
 }
 
-impl ValueExpression for Mult {
-    fn execute(&self) -> isize {
-        self.lhs * self.rhs
+impl Mult {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let lhs = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let rhs = modes[1].get_value(p, ip + 2, vm.relative_base);
+        let dest = modes[2].get_addr(p, ip + 3, vm.relative_base);
+
+        Mult {
+            lhs,
+            rhs,
+            dest,
+        }
+    }
+}
+
+impl Instruction for Mult {
+    fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
+        drop(vm.memory.insert(self.dest, self.lhs * self.rhs));
+
+        if self.dest != vm.instruction_ptr {
+            vm.instruction_ptr += self.get_len();
+        }
+
+        Ok(())
     }
 
     fn get_len(&self) -> usize {
@@ -104,14 +129,41 @@ impl ValueExpression for Mult {
 struct LessThan {
     lhs: isize,
     rhs: isize,
+    dest: usize,
 }
 
-impl ValueExpression for LessThan {
-    fn execute(&self) -> isize {
-        match self.lhs < self.rhs {
+impl LessThan {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let lhs = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let rhs = modes[1].get_value(p, ip + 2, vm.relative_base);
+        let dest = modes[2].get_addr(p, ip + 3, vm.relative_base);
+
+        LessThan {
+            lhs,
+            rhs,
+            dest,
+        }
+    }
+}
+
+impl Instruction for LessThan {
+    fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
+        let res = match self.lhs < self.rhs {
             true => 1,
             false => 0,
+        };
+
+        drop(vm.memory.insert(self.dest, res));
+
+        if self.dest != vm.instruction_ptr {
+            vm.instruction_ptr += self.get_len();
         }
+
+        Ok(())
     }
 
     fn get_len(&self) -> usize {
@@ -122,14 +174,41 @@ impl ValueExpression for LessThan {
 struct Equals {
     lhs: isize,
     rhs: isize,
+    dest: usize,
 }
 
-impl ValueExpression for Equals {
-    fn execute(&self) -> isize {
-        match self.lhs == self.rhs {
+impl Equals {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let lhs = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let rhs = modes[1].get_value(p, ip + 2, vm.relative_base);
+        let dest = modes[2].get_addr(p, ip + 3, vm.relative_base);
+
+        Equals {
+            lhs,
+            rhs,
+            dest,
+        }
+    }
+}
+
+impl Instruction for Equals {
+    fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
+        let res = match self.lhs == self.rhs {
             true => 1,
             false => 0,
+        };
+
+        drop(vm.memory.insert(self.dest, res));
+
+        if self.dest != vm.instruction_ptr {
+            vm.instruction_ptr += self.get_len();
         }
+
+        Ok(())
     }
 
     fn get_len(&self) -> usize {
@@ -139,6 +218,20 @@ impl ValueExpression for Equals {
 
 struct Input {
     dest: usize,
+}
+
+impl Input {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let dest = modes[0].get_addr(p, ip + 1, vm.relative_base);
+
+        Input {
+            dest,
+        }
+    }
 }
 
 impl Instruction for Input {
@@ -168,6 +261,20 @@ struct Output {
     val: isize,
 }
 
+impl Output {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let val = modes[0].get_value(p, ip + 1, vm.relative_base);
+
+        Output {
+            val,
+        }
+    }
+}
+
 impl Instruction for Output {
     fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
         vm.instruction_ptr += self.get_len();
@@ -184,6 +291,22 @@ impl Instruction for Output {
 struct JumpIfTrue {
     operand: isize,
     dest: usize,
+}
+
+impl JumpIfTrue {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let operand = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let dest = modes[1].get_value(p, ip + 2, vm.relative_base) as usize;
+
+        JumpIfTrue {
+            operand,
+            dest,
+        }
+    }
 }
 
 impl Instruction for JumpIfTrue {
@@ -206,6 +329,22 @@ struct JumpIfFalse {
     dest: usize,
 }
 
+impl JumpIfFalse {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let operand = modes[0].get_value(p, ip + 1, vm.relative_base);
+        let dest = modes[1].get_value(p, ip + 2, vm.relative_base) as usize;
+
+        JumpIfFalse {
+            operand,
+            dest,
+        }
+    }
+}
+
 impl Instruction for JumpIfFalse {
     fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
         match self.operand {
@@ -225,6 +364,20 @@ struct UpdateRelativeBase {
     offset: isize,
 }
 
+impl UpdateRelativeBase {
+    fn new(vm: &IntcodeVM) -> Self {
+        let p = &vm.memory;
+        let ip = vm.instruction_ptr;
+
+        let modes = Mode::get_next_3(vm);
+        let offset = modes[0].get_value(p, ip + 1, vm.relative_base);
+
+        UpdateRelativeBase {
+            offset,
+        }
+    }
+}
+
 impl Instruction for UpdateRelativeBase {
     fn execute(&self, vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
         vm.instruction_ptr += self.get_len();
@@ -238,6 +391,12 @@ impl Instruction for UpdateRelativeBase {
 }
 
 struct Halt {}
+
+impl Halt {
+    fn new(_vm: &IntcodeVM) -> Self {
+        Halt {}
+    }
+}
 
 impl Instruction for Halt {
     fn execute(&self, _vm: &mut IntcodeVM, _input_buffer: &mut VecDeque<isize>, _output_buffer: &mut VecDeque<isize>) -> Result<(), ExecutionError> {
@@ -293,7 +452,6 @@ impl dyn Instruction {
     fn next(vm: &mut IntcodeVM) -> Box<dyn Instruction> {
         let p = &vm.memory;
         let ip = vm.instruction_ptr;
-        let modes = Mode::get_next_3(vm);
         let instruction: Box<dyn Instruction>;
 
         match p[&ip]
@@ -308,74 +466,16 @@ impl dyn Instruction {
             .parse::<isize>()
         {
             Ok(opcode) => match opcode {
-                1 | 2 | 7 | 8 => {
-                    let a = modes[0].get_value(p, ip + 1, vm.relative_base);
-                    let b = modes[1].get_value(p, ip + 2, vm.relative_base);
-                    let dest = modes[2].get_addr(p, ip + 3, vm.relative_base);
-
-                    match opcode {
-                        1 => {
-                            instruction = Box::new(Put {
-                                dest: dest,
-                                op: Box::new(Add { lhs: a, rhs: b }),
-                            })
-                        }
-                        2 => {
-                            instruction = Box::new(Put {
-                                dest: dest,
-                                op: Box::new(Mult { lhs: a, rhs: b }),
-                            })
-                        }
-                        7 => {
-                            instruction = Box::new(Put {
-                                dest: dest,
-                                op: Box::new(LessThan { lhs: a, rhs: b }),
-                            })
-                        }
-                        8 => {
-                            instruction = Box::new(Put {
-                                dest: dest,
-                                op: Box::new(Equals { lhs: a, rhs: b }),
-                            })
-                        }
-                        _ => unreachable!(),
-                    };
-                }
-                3 => {
-                    let dest = modes[0].get_addr(p, ip + 1, vm.relative_base);
-                    instruction = Box::new(Input { dest });
-                }
-                4 => {
-                    let val = modes[0].get_value(p, ip + 1, vm.relative_base);
-                    instruction = Box::new(Output { val });
-                }
-                5 | 6 => {
-                    let operand = modes[0].get_value(p, ip + 1, vm.relative_base);
-                    let dest = modes[1].get_value(p, ip + 2, vm.relative_base) as usize;
-
-                    match opcode {
-                        5 => {
-                            instruction = Box::new(JumpIfTrue {
-                                dest,
-                                operand,
-                            })
-                        }
-                        6 => {
-                            instruction = Box::new(JumpIfFalse {
-                                dest,
-                                operand,
-                            })
-                        }
-                        _ => unreachable!(),
-                    };
-                }
-                9 => {
-                    let a = modes[0].get_value(p, ip + 1, vm.relative_base);
-                    instruction = Box::new(UpdateRelativeBase { offset: a });
-                }
-                99 => {
-                    instruction = Box::new(Halt {});
-                }
+                 1 => instruction = Box::new(Add::new(vm)),
+                 2 => instruction = Box::new(Mult::new(vm)),
+                 3 => instruction = Box::new(Input::new(vm)),
+                 4 => instruction = Box::new(Output::new(vm)),
+                 5 => instruction = Box::new(JumpIfTrue::new(vm)),
+                 6 => instruction = Box::new(JumpIfFalse::new(vm)),
+                 7 => instruction = Box::new(LessThan::new(vm)),
+                 8 => instruction = Box::new(Equals::new(vm)),
+                 9 => instruction = Box::new(UpdateRelativeBase::new(vm)),
+                99 => instruction = Box::new(Halt::new(vm)),
                 _ => panic!("Unknown opcode: {}", opcode),
             },
             _ => panic!("Invalid opcode"),
