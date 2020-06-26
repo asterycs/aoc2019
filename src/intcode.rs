@@ -116,7 +116,7 @@ struct Instruction {
 }
 
 impl Instruction {
-    fn next(state: &ProgramState) -> Instruction {
+    fn next(state: &IntcodeVM) -> Instruction {
         let p = &state.memory;
         let sp = state.stackptr;
 
@@ -197,16 +197,16 @@ pub enum ExecutionStatus {
 }
 
 #[derive(Debug, Clone)]
-pub struct ProgramState {
+pub struct IntcodeVM {
     pub status: ExecutionStatus,
     stackptr: usize,
     relative_base: isize,
     pub memory: HashMap<usize, isize>,
 }
 
-impl ProgramState {
-    pub fn new(program: &Vec<isize>) -> ProgramState {
-        ProgramState {
+impl IntcodeVM {
+    pub fn new(program: &Vec<isize>) -> IntcodeVM {
+        IntcodeVM {
             status: ExecutionStatus::Waiting,
             stackptr: 0,
             relative_base: 0,
@@ -220,7 +220,7 @@ impl ProgramState {
 }
 
 pub fn run(
-    state: &mut ProgramState,
+    state: &mut IntcodeVM,
     input_queue: &mut VecDeque<isize>,
     output_queue: &mut VecDeque<isize>,
 ) {
