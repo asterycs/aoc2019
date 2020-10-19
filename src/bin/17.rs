@@ -41,9 +41,73 @@ impl PartialEq for Vec2i {
     }
 }
 
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
+enum Heading {
+    East,
+    West,
+    North,
+    South,
+}
+
+impl Heading {
+    fn get_opposite(&self) -> Heading {
+        match self {
+            Heading::East => Heading::West,
+            Heading::West => Heading::East,
+            Heading::North => Heading::South,
+            Heading::South => Heading::North,
+        }
+    }
+
+    fn get_neighbor(&self, coord: &Vec2i) -> Vec2i {
+        match self {
+            Heading::East => Vec2i {
+                x: coord.x + 1,
+                y: coord.y,
+            },
+            Heading::West => Vec2i {
+                x: coord.x - 1,
+                y: coord.y,
+            },
+            Heading::North => Vec2i {
+                x: coord.x,
+                y: coord.y + 1,
+            },
+            Heading::South => Vec2i {
+                x: coord.x,
+                y: coord.y - 1,
+            },
+        }
+    }
+}
+
+impl From<i8> for Heading {
+    fn from(i: i8) -> Self {
+        match i {
+            0 => Heading::North,
+            1 => Heading::East,
+            2 => Heading::South,
+            3 => Heading::West,
+            _ => panic!("Unknown heading"),
+        }
+    }
+}
+
+impl Into<i8> for Heading {
+    fn into(self) -> i8 {
+        match self {
+            Heading::North => 0,
+            Heading::East => 1,
+            Heading::South => 2,
+            Heading::West => 3,
+        }
+    }
+}
+
 struct Map {
     size: Vec2u,
     data: HashMap<Vec2i, isize>,
+    robot_pos: Vec2i,
 }
 
 impl Map {
@@ -51,8 +115,16 @@ impl Map {
         let mut data = HashMap::new();
         let mut current_pos = Vec2i { x: 0, y: 0 };
         let mut size = Vec2u { x: 0, y: 0 };
+        let mut robot_pos = Vec2i { x: 0, y: 0 };
 
         for o in output {
+            if *o == 60 || *o == 62 || *o == 94 || *o == 118 {
+                robot_pos = Vec2i {
+                    x: current_pos.x,
+                    y: current_pos.y,
+                };
+            }
+
             if *o == 10 {
                 current_pos.x = 0;
                 current_pos.y += 1;
@@ -70,6 +142,7 @@ impl Map {
                 x: size.x + 1,
                 y: size.y + 1,
             },
+            robot_pos,
         }
     }
 }
@@ -92,6 +165,14 @@ fn draw_view(map: &Map) {
     print!("{}", to_draw);
 }
 
+fn is_road(map: &Map, coordinate: &Vec2i) -> bool {
+    if let Some(35) = map.data.get(coordinate) {
+        true
+    } else {
+        false
+    }
+}
+
 fn get_intersections(map: &Map) -> Vec<Intersection> {
     let mut intersections = Vec::new();
 
@@ -102,49 +183,15 @@ fn get_intersections(map: &Map) -> Vec<Intersection> {
             continue;
         }
 
-        let west_neighbor = Vec2i {
-            x: coord.x - 1,
-            y: coord.y,
-        };
+        let west_neighbor = Heading::West.get_neighbor(coord);
+        let east_neighbor = Heading::East.get_neighbor(coord);
+        let south_neighbor = Heading::South.get_neighbor(coord);
+        let north_neighbor = Heading::North.get_neighbor(coord);
 
-        if let Some(35) = map.data.get(&west_neighbor) {
-            is_intersection = true && is_intersection;
-        } else {
-            is_intersection = false;
-        }
-
-        let east_neighbor = Vec2i {
-            x: coord.x + 1,
-            y: coord.y,
-        };
-
-        if let Some(35) = map.data.get(&east_neighbor) {
-            is_intersection = true && is_intersection;
-        } else {
-            is_intersection = false;
-        }
-
-        let south_neighbor = Vec2i {
-            x: coord.x,
-            y: coord.y - 1,
-        };
-
-        if let Some(35) = map.data.get(&south_neighbor) {
-            is_intersection = true && is_intersection;
-        } else {
-            is_intersection = false;
-        }
-
-        let north_neighbor = Vec2i {
-            x: coord.x,
-            y: coord.y + 1,
-        };
-
-        if let Some(35) = map.data.get(&north_neighbor) {
-            is_intersection = true && is_intersection;
-        } else {
-            is_intersection = false;
-        }
+        is_intersection &= is_road(map, &north_neighbor);
+        is_intersection &= is_road(map, &south_neighbor);
+        is_intersection &= is_road(map, &west_neighbor);
+        is_intersection &= is_road(map, &east_neighbor);
 
         if is_intersection {
             intersections.push(Intersection { position: *coord });
@@ -154,7 +201,7 @@ fn get_intersections(map: &Map) -> Vec<Intersection> {
     intersections
 }
 
-fn get_alignment(intersections: &Vec<Intersection>) -> i32 {
+fn prod_sum(intersections: &Vec<Intersection>) -> i32 {
     let mut alignment = 0;
 
     for intersection in intersections {
@@ -164,16 +211,136 @@ fn get_alignment(intersections: &Vec<Intersection>) -> i32 {
     alignment
 }
 
-fn part_1(map_input: &VecDeque<isize>) -> i32 {
-    let map = Map::new(map_input);
-
-    draw_view(&map);
-
+fn get_alignment(map: &Map) -> i32 {
     let intersections = get_intersections(&map);
 
-    let alignment = get_alignment(&intersections);
+    let alignment = prod_sum(&intersections);
 
     alignment
+}
+
+fn get_initial_heading(map_value: isize) -> Heading {
+    match map_value {
+        60 => Heading::West,
+        62 => Heading::East,
+        94 => Heading::North,
+        118 => Heading::South,
+        _ => panic!("Failed to parse initial heading"),
+    }
+}
+
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Copy)]
+enum Move {
+    Forward,
+    TurnLeft,
+    TurnRight,
+}
+
+impl From<i8> for Move {
+    fn from(i: i8) -> Self {
+        match i {
+            -1 => Move::TurnLeft,
+            0 => Move::Forward,
+            1 => Move::TurnRight,
+            _ => panic!("Unrecognized move: {}", i),
+        }
+    }
+}
+
+impl Move {
+    fn get_heading_after(&self, heading: Heading) -> Heading {
+        match self {
+            Move::TurnLeft => Heading::from((Into::<i8>::into(heading) + 4 - 1) % 4),
+            Move::TurnRight => Heading::from((Into::<i8>::into(heading) + 1) % 4),
+            _ => return heading,
+        }
+    }
+}
+
+fn get_next_move(mut neighbors: HashMap<Heading, bool>, current_heading: Heading) -> Option<Move> {
+    if neighbors[&current_heading] {
+        return Some(Move::Forward);
+    }
+
+    neighbors.remove(&current_heading);
+    neighbors.remove(&current_heading.get_opposite());
+
+    for (heading, traversable) in neighbors.into_iter() {
+        if traversable {
+            let turned_quarters = Into::<i8>::into(heading) - Into::<i8>::into(current_heading);
+            let turned_quarters = (turned_quarters + 2) % 4 - 2;
+
+            println!(
+                "heading {:?} current_heading {:?} turned_quarters {}",
+                heading, current_heading, turned_quarters
+            );
+
+            return Some(Move::from(turned_quarters));
+        }
+    }
+
+    return None;
+}
+
+fn get_to_goal_commands(map: &Map) -> Vec<String> {
+    let mut current_position = map.robot_pos;
+    let mut current_heading = get_initial_heading(*map.data.get(&map.robot_pos).unwrap());
+    let mut segment_length = 0;
+    let mut commands = Vec::new();
+
+    loop {
+        let west = Heading::West.get_neighbor(&current_position);
+        let east = Heading::East.get_neighbor(&current_position);
+        let north = Heading::North.get_neighbor(&current_position);
+        let south = Heading::South.get_neighbor(&current_position);
+
+        let neighbors = [
+            (Heading::West, west),
+            (Heading::East, east),
+            (Heading::North, north),
+            (Heading::South, south),
+        ]
+        .iter()
+        .map(|n| (n.0, is_road(map, &n.1)))
+        .collect::<HashMap<_, _>>();
+
+        let next_move = get_next_move(neighbors.clone(), current_heading);
+
+        if let Some(mov) = next_move {
+            match mov {
+                Move::Forward => {
+                    segment_length += 1;
+                    current_position = current_heading.get_neighbor(&current_position);
+                }
+                Move::TurnLeft => {
+                    if segment_length > 0 {
+                        commands.push(segment_length.to_string())
+                    }
+                    commands.push("L".to_string());
+                }
+                Move::TurnRight => {
+                    if segment_length > 0 {
+                        commands.push(segment_length.to_string())
+                    }
+                    commands.push("R".to_string());
+                }
+            }
+
+            current_heading = mov.get_heading_after(current_heading);
+        } else {
+            break;
+        }
+    }
+
+    return commands;
+}
+
+fn get_program(map: &Map) -> Vec<Vec<String>> {
+    let to_goal_commands = get_to_goal_commands(map);
+
+    println!("{:?}", to_goal_commands);
+
+    vec![vec![String::new()]]
 }
 
 fn main() {
@@ -190,9 +357,15 @@ fn main() {
     let mut output_queue = &mut VecDeque::new();
 
     if let VMStatus::Halted = run(&mut vm, &mut input_queue, &mut output_queue) {
-        let alignment = part_1(output_queue);
+        let map = Map::new(output_queue);
 
+        draw_view(&map);
+
+        let alignment = get_alignment(&map);
         println!("Alignment: {}", alignment);
+
+        let program = get_program(&map);
+        println!("{:?}", program);
     } else {
         panic!("Intcode program failed");
     }
@@ -206,7 +379,9 @@ mod tests {
     fn test_example() {
         let test_input = get_test_input();
 
-        let alignment = part_1(&test_input);
+        let map = Map::new(&test_input);
+
+        let alignment = get_alignment(&map);
 
         assert_eq!(alignment, 76);
     }
