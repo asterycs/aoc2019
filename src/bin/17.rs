@@ -17,12 +17,6 @@ fn get_input() -> String {
     input
 }
 
-fn get_test_input() -> VecDeque<isize> {
-    let input = "..#..........\n..#..........\n#######...###\n#.#...#...#.#\n#############\n..#...#...#..\n..#####...#..";
-
-    input.chars().map(|c| c as isize).collect()
-}
-
 #[derive(Debug, Hash, Eq, Copy, Clone)]
 struct Vec2i {
     x: i32,
@@ -71,11 +65,11 @@ impl Heading {
             },
             Heading::North => Vec2i {
                 x: coord.x,
-                y: coord.y + 1,
+                y: coord.y - 1,
             },
             Heading::South => Vec2i {
                 x: coord.x,
-                y: coord.y - 1,
+                y: coord.y + 1,
             },
         }
     }
@@ -103,38 +97,41 @@ impl Into<i8> for Heading {
         }
     }
 }
-
+#[derive(Clone)]
 struct Map {
     size: Vec2u,
     data: HashMap<Vec2i, isize>,
-    robot_pos: Vec2i,
+    robot_position: Vec2i,
+    robot_heading: Heading
 }
 
 impl Map {
     fn new(output: &VecDeque<isize>) -> Map {
         let mut data = HashMap::new();
-        let mut current_pos = Vec2i { x: 0, y: 0 };
+        let mut current_position = Vec2i { x: 0, y: 0 };
         let mut size = Vec2u { x: 0, y: 0 };
-        let mut robot_pos = Vec2i { x: 0, y: 0 };
+        let mut robot_position = Vec2i { x: 0, y: 0 };
 
         for o in output {
             if *o == 60 || *o == 62 || *o == 94 || *o == 118 {
-                robot_pos = Vec2i {
-                    x: current_pos.x,
-                    y: current_pos.y,
+                robot_position = Vec2i {
+                    x: current_position.x,
+                    y: current_position.y,
                 };
             }
 
             if *o == 10 {
-                current_pos.x = 0;
-                current_pos.y += 1;
+                current_position.x = 0;
+                current_position.y += 1;
             } else {
-                data.insert(current_pos, *o);
-                size.x = std::cmp::max(current_pos.x as u32, size.x);
-                size.y = std::cmp::max(current_pos.y as u32, size.y);
-                current_pos.x += 1;
+                data.insert(current_position, *o);
+                size.x = std::cmp::max(current_position.x as u32, size.x);
+                size.y = std::cmp::max(current_position.y as u32, size.y);
+                current_position.x += 1;
             }
         }
+
+        let robot_heading = get_initial_heading(*data.get(&robot_position).unwrap());
 
         Map {
             data,
@@ -142,7 +139,8 @@ impl Map {
                 x: size.x + 1,
                 y: size.y + 1,
             },
-            robot_pos,
+            robot_position,
+            robot_heading
         }
     }
 }
@@ -157,7 +155,11 @@ fn draw_view(map: &Map) {
 
     for y in 0..map.size.y as i32 {
         for x in 0..map.size.x as i32 {
-            to_draw.push(*map.data.get(&Vec2i { x, y }).unwrap() as u8 as char);
+            if x == map.robot_position.x && y == map.robot_position.y {
+                //to_draw.push('X');
+            } else {
+                to_draw.push(*map.data.get(&Vec2i { x, y }).unwrap() as u8 as char);
+            }
         }
         to_draw.push('\n');
     }
@@ -268,12 +270,7 @@ fn get_next_move(mut neighbors: HashMap<Heading, bool>, current_heading: Heading
     for (heading, traversable) in neighbors.into_iter() {
         if traversable {
             let turned_quarters = Into::<i8>::into(heading) - Into::<i8>::into(current_heading);
-            let turned_quarters = (turned_quarters + 2) % 4 - 2;
-
-            println!(
-                "heading {:?} current_heading {:?} turned_quarters {}",
-                heading, current_heading, turned_quarters
-            );
+            let turned_quarters = (turned_quarters + 2).rem_euclid(4) - 2;
 
             return Some(Move::from(turned_quarters));
         }
@@ -283,8 +280,8 @@ fn get_next_move(mut neighbors: HashMap<Heading, bool>, current_heading: Heading
 }
 
 fn get_to_goal_commands(map: &Map) -> Vec<String> {
-    let mut current_position = map.robot_pos;
-    let mut current_heading = get_initial_heading(*map.data.get(&map.robot_pos).unwrap());
+    let mut current_position = map.robot_position;
+    let mut current_heading = map.robot_heading;
     let mut segment_length = 0;
     let mut commands = Vec::new();
 
@@ -316,18 +313,21 @@ fn get_to_goal_commands(map: &Map) -> Vec<String> {
                     if segment_length > 0 {
                         commands.push(segment_length.to_string())
                     }
+                    segment_length = 0;
                     commands.push("L".to_string());
                 }
                 Move::TurnRight => {
                     if segment_length > 0 {
                         commands.push(segment_length.to_string())
                     }
+                    segment_length = 0;
                     commands.push("R".to_string());
                 }
             }
 
             current_heading = mov.get_heading_after(current_heading);
         } else {
+            commands.push(segment_length.to_string());
             break;
         }
     }
@@ -335,12 +335,39 @@ fn get_to_goal_commands(map: &Map) -> Vec<String> {
     return commands;
 }
 
+fn find_subsequences<T>(haystack: &[T], needle: &[T]) -> Vec<usize>
+    where for<'a> &'a [T]: PartialEq
+{
+    let mut indices = vec![];
+
+    for (i, b) in haystack.windows(needle.len()).map(|window| window == needle).collect::<Vec<bool>>().into_iter().enumerate() {
+        if b {
+            indices.push(i);
+        }
+    }
+
+    indices
+}
+
+macro_rules! string_vec {
+    ($($x:expr),*) => (vec![$($x.to_string()),*]);
+}
+
 fn get_program(map: &Map) -> Vec<Vec<String>> {
     let to_goal_commands = get_to_goal_commands(map);
 
-    println!("{:?}", to_goal_commands);
+    println!("{:?}", to_goal_commands.clone().into_iter().collect::<String>());
 
-    vec![vec![String::new()]]
+    let a = string_vec!["R", "6", "L", "6", "R", "12", "L", "6", "L", "10", "L", "10", "R", "6"];
+    let b = string_vec!["L", "6", "R", "12", "L", "4", "L", "6"];
+    let c = string_vec!["R", "6", "L", "6", "R", "12"];
+
+    // One day I'll make a real solution for this
+    //find_subsequences(&to_goal_commands, &a);
+    //find_subsequences(&to_goal_commands, &b);
+    //find_subsequences(&to_goal_commands, &c);
+
+    vec![string_vec!["B", "C", "A", "B", "A", "B", "A"], a, b, c]
 }
 
 fn main() {
@@ -356,27 +383,65 @@ fn main() {
     let mut input_queue = &mut VecDeque::new();
     let mut output_queue = &mut VecDeque::new();
 
-    if let VMStatus::Halted = run(&mut vm, &mut input_queue, &mut output_queue) {
-        let map = Map::new(output_queue);
-
-        draw_view(&map);
-
-        let alignment = get_alignment(&map);
-        println!("Alignment: {}", alignment);
-
-        let program = get_program(&map);
-        println!("{:?}", program);
-    } else {
+    // Part 1
+    if VMStatus::Halted != run(&mut vm, &mut input_queue, &mut output_queue) {
         panic!("Intcode program failed");
     }
+
+    let map = Map::new(output_queue);
+    draw_view(&map);
+
+    let alignment = get_alignment(&map);
+    println!("Alignment: {}", alignment);
+
+    // Part 2
+    let ascii_program = get_program(&map);
+    program[0] = 2;
+
+    let mut vm = IntcodeVM::new(program);
+
+    let mut input_queue = &mut VecDeque::new();
+    let mut output_queue = &mut VecDeque::new();
+
+    for i in 0..4 {
+        if let VMStatus::EmptyInputBuffer = run(&mut vm, &mut input_queue, &mut output_queue) {
+            let as_ascii = ascii_program[i].iter().map(|c| c.chars().next().unwrap() as isize).collect::<Vec<isize>>();
+
+            input_queue.clear();
+            for c in as_ascii.into_iter() {
+                input_queue.push_back(c);
+                input_queue.push_back(44);
+            }
+
+            let sz = input_queue.len();
+            input_queue[sz - 1] = 10;
+
+            // Parts of numbers are missing
+            for c in input_queue.iter() {
+                println!("{:?}", (*c as u8) as char);
+            }
+            
+
+        } else {
+            panic!("Intcode program failed");
+        }
+    }
+
+    
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn get_test_input() -> VecDeque<isize> {
+    let input = "..#..........\n..#..........\n#######...###\n#.#...#...#.#\n#############\n..#...#...#..\n..#####...#..";
+
+    input.chars().map(|c| c as isize).collect()
+}
+
     #[test]
-    fn test_example() {
+    fn test_example_part1() {
         let test_input = get_test_input();
 
         let map = Map::new(&test_input);
