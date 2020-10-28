@@ -155,11 +155,7 @@ fn draw_view(map: &Map) {
 
     for y in 0..map.size.y as i32 {
         for x in 0..map.size.x as i32 {
-            if x == map.robot_position.x && y == map.robot_position.y {
-                //to_draw.push('X');
-            } else {
-                to_draw.push(*map.data.get(&Vec2i { x, y }).unwrap() as u8 as char);
-            }
+            to_draw.push(*map.data.get(&Vec2i { x, y }).unwrap() as u8 as char);
         }
         to_draw.push('\n');
     }
@@ -354,11 +350,9 @@ macro_rules! string_vec {
 }
 
 fn get_program(map: &Map) -> Vec<Vec<String>> {
-    let to_goal_commands = get_to_goal_commands(map);
+    let _to_goal_commands = get_to_goal_commands(map);
 
-    println!("{:?}", to_goal_commands.clone().into_iter().collect::<String>());
-
-    let a = string_vec!["R", "6", "L", "6", "R", "12", "L", "6", "L", "10", "L", "10", "R", "6"];
+    let a = string_vec!["L", "6", "L", "10", "L", "10", "R", "6"];
     let b = string_vec!["L", "6", "R", "12", "L", "4", "L", "6"];
     let c = string_vec!["R", "6", "L", "6", "R", "12"];
 
@@ -367,7 +361,11 @@ fn get_program(map: &Map) -> Vec<Vec<String>> {
     //find_subsequences(&to_goal_commands, &b);
     //find_subsequences(&to_goal_commands, &c);
 
-    vec![string_vec!["B", "C", "A", "B", "A", "B", "A"], a, b, c]
+    vec![string_vec!["B","C","C","A","B","C","A","B","C","A"], a, b, c]
+}
+
+fn to_ascii(input: &Vec<String>) -> Vec<Vec<isize>> {
+    input.iter().map(|c| c.chars().map(|x| x as isize).collect::<Vec<_>>()).collect::<Vec<Vec<_>>>()
 }
 
 fn main() {
@@ -395,39 +393,47 @@ fn main() {
     println!("Alignment: {}", alignment);
 
     // Part 2
-    let ascii_program = get_program(&map);
     program[0] = 2;
+    let robot_program = get_program(&map);
 
     let mut vm = IntcodeVM::new(program);
 
     let mut input_queue = &mut VecDeque::new();
     let mut output_queue = &mut VecDeque::new();
 
+    run(&mut vm, &mut input_queue, &mut output_queue);
+
     for i in 0..4 {
-        if let VMStatus::EmptyInputBuffer = run(&mut vm, &mut input_queue, &mut output_queue) {
-            let as_ascii = ascii_program[i].iter().map(|c| c.chars().next().unwrap() as isize).collect::<Vec<isize>>();
+        input_queue.clear();
+        output_queue.clear();
+        let as_ascii = to_ascii(&robot_program[i]);
 
-            input_queue.clear();
-            for c in as_ascii.into_iter() {
+        for command in as_ascii.into_iter() {
+            for c in command.into_iter() {
                 input_queue.push_back(c);
-                input_queue.push_back(44);
             }
+            input_queue.push_back(44);
+        }
 
-            let sz = input_queue.len();
-            input_queue[sz - 1] = 10;
+        input_queue.pop_back();
+        input_queue.push_back(10);
 
-            // Parts of numbers are missing
-            for c in input_queue.iter() {
-                println!("{:?}", (*c as u8) as char);
-            }
-            
+        let vm_status = run(&mut vm, &mut input_queue, &mut output_queue);
 
-        } else {
-            panic!("Intcode program failed");
+        if vm_status != VMStatus::EmptyInputBuffer {
+            panic!("VM execution failed");
         }
     }
 
-    
+    input_queue.clear();
+    output_queue.clear();
+
+    input_queue.push_back('n' as u8 as isize);
+    input_queue.push_back(10);
+
+    if VMStatus::Ok == run(&mut vm, &mut input_queue, &mut output_queue) {
+        println!("output: {:?}", output_queue.back());
+    }
 }
 
 #[cfg(test)]
@@ -435,10 +441,10 @@ mod tests {
     use super::*;
 
     fn get_test_input() -> VecDeque<isize> {
-    let input = "..#..........\n..#..........\n#######...###\n#.#...#...#.#\n#############\n..#...#...#..\n..#####...#..";
+        let input = "..#..........\n..#..........\n#######...###\n#.#...#...#.#\n#############\n..#...#...#..\n..#####...#..";
 
-    input.chars().map(|c| c as isize).collect()
-}
+        input.chars().map(|c| c as isize).collect()
+    }
 
     #[test]
     fn test_example_part1() {
