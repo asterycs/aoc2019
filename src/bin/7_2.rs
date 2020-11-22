@@ -81,11 +81,11 @@ fn main() {
         ];
 
         let vm_status = &mut [
-            Result::Ok(()),
-            Result::Ok(()),
-            Result::Ok(()),
-            Result::Ok(()),
-            Result::Ok(()),
+            VMStatus::Ok,
+            VMStatus::Ok,
+            VMStatus::Ok,
+            VMStatus::Ok,
+            VMStatus::Ok,
         ];
         
         let input_queue: &mut VecDeque<isize> = &mut VecDeque::new();
@@ -94,7 +94,7 @@ fn main() {
         let mut i = 0;
         let mut round = 0;
         loop {
-            if let Err(ExecutionError::Halted) = vm_status[i] {
+            if let VMStatus::Halted = vm_status[i] {
                 break;
             };
 

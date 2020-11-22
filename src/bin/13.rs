@@ -160,7 +160,7 @@ fn main() {
         update_game_state(&output_queue, &mut game_state);
         draw_game(&game_state);
 
-        if let Err(ExecutionError::EmptyInputBuffer) = result {
+        if let VMStatus::EmptyInputBuffer = result {
             let input = match game_state.paddle_pos.x.cmp(&game_state.ball_pos.x) {
                 Ordering::Less => 1,
                 Ordering::Equal => 0,

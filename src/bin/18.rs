@@ -99,6 +99,8 @@ struct Expansion {
 
 #[derive(Debug, Clone)]
 struct SearchState {
+    current_position: Vec2u,
+    distance_travelled: u32,
     region: HashSet<Vec2u>,
     threads: HashSet<Vec2u>, // Where to pick up searching
     accessible_keys: HashMap<u32, Vec2u>,
@@ -178,7 +180,7 @@ impl SearchState {
     }
 
     fn new(entrance: &Vec2u) -> Self {
-        SearchState{region: HashSet::new(), threads: vec![*entrance].into_iter().collect(), accessible_keys: HashMap::new(), obtained_keys: HashSet::new()}
+        SearchState{current_position: *entrance, distance_travelled: 0, region: HashSet::new(), threads: vec![*entrance].into_iter().collect(), accessible_keys: HashMap::new(), obtained_keys: HashSet::new()}
     }
 
     fn pick_up_key(&mut self, key: u32, map: &MapData, position: &mut Vec2u) -> u32 {
@@ -219,11 +221,10 @@ fn choose_next_key(map: &MapData, state: &SearchState, &position: &Vec2u) -> u32
 }
 
 fn part1(input: String) -> u32 {
-    let mut map = build_map(&input);
+    let map = build_map(&input);
     let mut current_position = find_entrance(&map.map).expect("No entrance?");
 
-    let mut state = SearchState::new(&current_position);
-    let mut distance_travelled = 0; 
+    let mut states = vec![SearchState::new(&current_position)].into_iter().collect::<VecDeque<_>>();
 
     while !state.threads.is_empty(){
         state.expand(&map);
@@ -256,10 +257,6 @@ mod tests {
         "#########\n#b.A.@.a#\n#########".to_owned()
     }
 
-    fn part1_test_input1() -> String {
-        "########################\n#f.D.E.e.C.b.A.@.a.B.c.#\n######################.#\n#d.....................#\n########################".to_owned()
-    }
-
     #[test]
     fn part1_test0() {
         let input = part1_test_input0();
@@ -267,6 +264,10 @@ mod tests {
         let steps = part1(input);
 
         assert_eq!(steps, 8);
+    }
+
+    fn part1_test_input1() -> String {
+        "########################\n#f.D.E.e.C.b.A.@.a.B.c.#\n######################.#\n#d.....................#\n########################".to_owned()
     }
 
     #[test]

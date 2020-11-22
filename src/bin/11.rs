@@ -117,7 +117,7 @@ fn run_painter(init_tile_color: isize, program: &Vec<isize>) -> HashMap<(isize, 
 
         input_queue.push_back(hull.get(&(robot_state.x, robot_state.y)).unwrap_or(&Color::Black).into());
 
-        if let Err(ExecutionError::Halted) = result {
+        if let VMStatus::Halted = result {
             break;
         };
     }
