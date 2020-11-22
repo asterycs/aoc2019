@@ -33,7 +33,7 @@ fn run(mut program: Vec<usize>) -> usize {
 
 fn main() {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/2_1.txt");
+    filename.push("inputs/2.txt");
 
     println!("Reading {}", filename.display());
 

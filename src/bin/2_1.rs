@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 fn main() {
     let filename = &mut PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    filename.push("inputs/2_1.txt");
+    filename.push("inputs/2.txt");
 
     println!("Reading {}", filename.display());
 

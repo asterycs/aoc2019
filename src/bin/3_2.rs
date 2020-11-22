@@ -93,7 +93,7 @@ fn intersects(a: &LineSegment, b: &LineSegment) -> Option<(isize, isize)> {
 
 fn main() {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/3_1.txt");
+    filename.push("inputs/3.txt");
 
     println!("Reading {}", filename.display());
 
