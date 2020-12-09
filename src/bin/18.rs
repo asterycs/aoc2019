@@ -1,39 +1,25 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::cmp::Ordering;
+use std::collections::{HashSet, HashMap, VecDeque, BinaryHeap};
 
-type MapData = Vec<Vec<Tile>>;
-struct Map {
-    map: MapData,
-    keys: HashMap<u32, Vec2u>,
-    doors: HashMap<u32, Vec2u>
-}
+type Map = Vec<Vec<Tile>>;
 
 fn build_map(input: &String) -> Map {
-    let mut map = MapData::new();
-    let mut keys = HashMap::new();
-    let mut doors = HashMap::new();
+    let mut map = Map::new();
 
-    for (r, line) in input.split('\n').enumerate() {
+    for line in input.split('\n') {
         let mut row = Vec::new();
-        for (c, char) in line.chars().enumerate() {
+        for char in line.chars() {
             let tile = Tile::from(char);
-            let coordinate  = Vec2u{r, c};
-
-            if let Tile::Key(n) = tile {
-                keys.insert(n, coordinate);
-            }else if let Tile::Door(n) = tile {
-                doors.insert(n, coordinate);
-            }
-
             row.push(tile);
         }
 
         map.push(row);
     }
 
-    Map{map, keys, doors}
+    map
 }
 
 fn get_input() -> String {
@@ -75,7 +61,7 @@ impl From<char> for Tile {
     }
 }
 
-fn find_entrance(map: &MapData) -> Option<Vec2u> {
+fn find_entrance(map: &Map) -> Option<Vec2u> {
     for (row, line) in map.iter().enumerate() {
         for (col, tile) in line.iter().enumerate() {
             if *tile == Tile::Entrance {
@@ -92,19 +78,32 @@ fn get_neighbors(target: &Vec2u) -> Vec<Vec2u> {
     neighbors.to_vec()
 }
 
-struct Expansion {
-    accessible: Vec<Vec2u>,
-    blocked_by_door: Vec<Vec2u>
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct MappingState {
+    region: HashSet<Vec2u>,
+    threads: HashSet<Vec2u>,
+    accessible_keys: HashMap<u32, Vec2u>
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 struct SearchState {
+    next_key: u32,
     current_position: Vec2u,
     distance_travelled: u32,
-    region: HashSet<Vec2u>,
-    threads: HashSet<Vec2u>, // Where to pick up searching
-    accessible_keys: HashMap<u32, Vec2u>,
-    obtained_keys: HashSet<u32>
+    obtained_keys: HashSet<u32>,
+    mapping_state: MappingState
+}
+
+impl Ord for SearchState {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.distance_travelled.cmp(&self.distance_travelled)
+    }
+}
+
+impl PartialOrd for SearchState {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 #[derive(Debug)]
@@ -117,7 +116,55 @@ enum TileStatus {
 }
 
 impl SearchState {
-    fn visit(&self, region: &HashSet<Vec2u>, map: &MapData, target: &Vec2u) -> TileStatus {
+    fn new(next_key: u32, mapping_state: MappingState, start_position: &Vec2u) -> Self {
+        SearchState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: HashSet::new(), mapping_state: mapping_state}
+    }
+
+    fn pick_up_key(&mut self, key: u32, map: &Map) {
+        let key_position = *self.mapping_state.accessible_keys.get(&key).unwrap();
+        self.mapping_state.accessible_keys.remove(&key);
+        self.obtained_keys.insert(key);
+
+        let mut stack = vec![(self.current_position.clone(), 0u32)].into_iter().collect::<VecDeque<_>>();
+        let mut visited = HashSet::new();
+
+        while !stack.is_empty() {
+            let (current_position, distance_from_start) = stack.pop_front().unwrap();
+
+            if current_position == key_position {
+                self.current_position = key_position;
+                self.distance_travelled += distance_from_start;
+
+                return;
+            }
+
+            let status = self.mapping_state.visit(&visited, &self.obtained_keys, &map, &current_position);
+
+            match status {
+                TileStatus::NewKey(_) | TileStatus::Free => {        
+                    let neighbors = get_neighbors(&current_position);
+                    stack.append(&mut neighbors.into_iter().map(|n| (n, distance_from_start + 1)).collect());
+                },
+                _ => ()
+            }
+
+            visited.insert(current_position);
+        }
+        
+        panic!("Couldn't pick up key");
+    }
+
+    fn push_next(&self, queue: &mut BinaryHeap<Self>) {
+        for next_key in self.mapping_state.accessible_keys.iter() {
+            let mut new_state = self.clone();
+            new_state.next_key = *next_key.0;
+            queue.push(new_state);
+        }
+    }
+}
+
+impl MappingState {
+    fn visit(&self, region: &HashSet<Vec2u>, obtained_keys: &HashSet<u32>, map: &Map, target: &Vec2u) -> TileStatus {
         if region.contains(target) {
             return TileStatus::AlreadyVisited;
         }
@@ -127,14 +174,14 @@ impl SearchState {
             if let Some(tile) = row.get(target.c) {
                 match tile {
                     Tile::Door(d) => {
-                        if self.obtained_keys.contains(&d) {
+                        if obtained_keys.contains(&d) {
                             return TileStatus::Free;
                         }else{
                             return TileStatus::MissingKey;
                         }
                     },
                     Tile::Key(k) => {
-                        if !self.obtained_keys.contains(k) {
+                        if !obtained_keys.contains(k) {
                             return TileStatus::NewKey(*k);
                         }else{
                             return TileStatus::Free;
@@ -149,13 +196,13 @@ impl SearchState {
         return TileStatus::Inaccessible
     }
 
-    fn expand(&mut self, map: &Map) {
+    fn expand(&mut self, map: &Map, obtained_keys: &HashSet<u32>) {
         let mut stack = self.threads.drain().collect::<VecDeque<_>>();
 
         // bfs
         while !stack.is_empty() {
             let current_position = stack.pop_front().unwrap();
-            let status = self.visit(&self.region, &map.map, &current_position);
+            let status = self.visit(&self.region, &obtained_keys, &map, &current_position);
 
             match status {
                 TileStatus::MissingKey => {
@@ -180,73 +227,46 @@ impl SearchState {
     }
 
     fn new(entrance: &Vec2u) -> Self {
-        SearchState{current_position: *entrance, distance_travelled: 0, region: HashSet::new(), threads: vec![*entrance].into_iter().collect(), accessible_keys: HashMap::new(), obtained_keys: HashSet::new()}
+        MappingState{region: HashSet::new(), threads: vec![*entrance].into_iter().collect(), accessible_keys: HashMap::new()}
     }
-
-    fn pick_up_key(&mut self, key: u32, map: &MapData, position: &mut Vec2u) -> u32 {
-        let key_position = *self.accessible_keys.get(&key).unwrap();
-        self.accessible_keys.remove(&key);
-        self.obtained_keys.insert(key);
-
-        let mut stack = vec![(position.clone(), 0u32)].into_iter().collect::<VecDeque<_>>();
-        let mut visited = HashSet::new();
-
-        while !stack.is_empty() {
-            let (current_position, distance_from_start) = stack.pop_front().unwrap();
-
-            if current_position == key_position {
-                *position = key_position;
-                return distance_from_start;
-            }
-
-            let status = self.visit(&visited, &map, &current_position);
-
-            match status {
-                TileStatus::NewKey(_) | TileStatus::Free => {        
-                    let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.into_iter().map(|n| (n, distance_from_start + 1)).collect());
-                },
-                _ => ()
-            }
-
-            visited.insert(current_position);
-        }
-        
-        panic!("Couldn't pick up key");
-    }
-}
-
-fn choose_next_key(map: &MapData, state: &SearchState, &position: &Vec2u) -> u32 {
-    *state.accessible_keys.iter().next().unwrap().0
 }
 
 fn part1(input: String) -> u32 {
     let map = build_map(&input);
-    let mut current_position = find_entrance(&map.map).expect("No entrance?");
+    let entrance_position = find_entrance(&map).expect("No entrance?");
 
-    let mut states = vec![SearchState::new(&current_position)].into_iter().collect::<VecDeque<_>>();
+    let mut initial_mapping_state = MappingState::new(&entrance_position);
+    initial_mapping_state.expand(&map, &HashSet::new());
+    let mut state_queue = BinaryHeap::new();
 
-    while !state.threads.is_empty(){
-        state.expand(&map);
+    for key in initial_mapping_state.accessible_keys.iter() {
+        state_queue.push(SearchState::new(*key.0, initial_mapping_state.clone(), &entrance_position));
+    }
 
-        if !state.accessible_keys.is_empty() {
-            if state.accessible_keys.len() > 1 {
-                panic!("So many choices!");
-            }
-    
-            let key = choose_next_key(&map.map, &state, &current_position);
-            let distance_to_key = state.pick_up_key(key, &map.map, &mut current_position);
+    let mut min_distance = std::u32::MAX;
 
-            distance_travelled += distance_to_key;
+    while !state_queue.is_empty() {
+        let mut state = state_queue.pop().unwrap();
+
+        state.pick_up_key(state.next_key, &map);
+        state.mapping_state.expand(&map, &state.obtained_keys);
+
+        if !state.mapping_state.accessible_keys.is_empty() {
+            state.push_next(&mut state_queue);
         }else{
-            panic!("Blocking doors but no keys are accessible");
+            min_distance = std::cmp::min(min_distance, state.distance_travelled);
         }
     }
 
-    distance_travelled
+    min_distance
 }
 
 fn main() {
+    let input = get_input();
+
+    let steps = part1(input);
+
+    println!("steps: {}", steps);
 }
 
 #[cfg(test)]
@@ -277,5 +297,31 @@ mod tests {
         let steps = part1(input);
 
         assert_eq!(steps, 86);
+    }
+
+    fn part1_test_input2() -> String {
+        "########################\n#...............b.C.D.f#\n#.######################\n#.....@.a.B.c.d.A.e.F.g#\n########################".to_owned()
+    }
+
+    #[test]
+    fn part1_test2() {
+        let input = part1_test_input2();
+
+        let steps = part1(input);
+
+        assert_eq!(steps, 132);
+    }
+
+    fn part1_test_input3() -> String {
+        "#################\n#i.G..c...e..H.p#\n########.########\n#j.A..b...f..D.o#\n########@########\n#k.E..a...g..B.n#\n########.########\n#l.F..d...h..C.m#\n#################".to_owned()
+    }
+
+    #[test]
+    fn part1_test3() {
+        let input = part1_test_input3();
+
+        let steps = part1(input);
+
+        assert_eq!(steps, 136);
     }
 }
