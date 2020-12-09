@@ -73,9 +73,8 @@ fn find_entrance(map: &Map) -> Option<Vec2u> {
     None
 }
 
-fn get_neighbors(target: &Vec2u) -> Vec<Vec2u> {
-    let neighbors = [Vec2u{r: target.r - 1, c: target.c}, Vec2u{r: target.r + 1, c: target.c}, Vec2u{r: target.r, c: target.c + 1}, Vec2u{r: target.r, c: target.c - 1}];
-    neighbors.to_vec()
+fn get_neighbors(target: &Vec2u) -> [Vec2u; 4] {
+    [Vec2u{r: target.r - 1, c: target.c}, Vec2u{r: target.r + 1, c: target.c}, Vec2u{r: target.r, c: target.c + 1}, Vec2u{r: target.r, c: target.c - 1}]
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -86,7 +85,7 @@ struct MappingState {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct SearchState {
+struct ExplorationState {
     next_key: u32,
     current_position: Vec2u,
     distance_travelled: u32,
@@ -94,13 +93,13 @@ struct SearchState {
     mapping_state: MappingState
 }
 
-impl Ord for SearchState {
+impl Ord for ExplorationState {
     fn cmp(&self, other: &Self) -> Ordering {
         other.distance_travelled.cmp(&self.distance_travelled)
     }
 }
 
-impl PartialOrd for SearchState {
+impl PartialOrd for ExplorationState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -115,9 +114,9 @@ enum TileStatus {
     MissingKey
 }
 
-impl SearchState {
+impl ExplorationState {
     fn new(next_key: u32, mapping_state: MappingState, start_position: &Vec2u) -> Self {
-        SearchState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: HashSet::new(), mapping_state: mapping_state}
+        ExplorationState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: HashSet::new(), mapping_state: mapping_state}
     }
 
     fn pick_up_key(&mut self, key: u32, map: &Map) {
@@ -143,7 +142,7 @@ impl SearchState {
             match status {
                 TileStatus::NewKey(_) | TileStatus::Free => {        
                     let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.into_iter().map(|n| (n, distance_from_start + 1)).collect());
+                    stack.append(&mut neighbors.into_iter().map(|n| (n.clone(), distance_from_start + 1)).collect());
                 },
                 _ => ()
             }
@@ -208,17 +207,12 @@ impl MappingState {
                 TileStatus::MissingKey => {
                     self.threads.insert(current_position);
                 },
-                TileStatus::NewKey(k) => {
-                    self.accessible_keys.insert(k, current_position);
-                    // WETWET
+                TileStatus::Free | TileStatus::NewKey(_) => {
+                    if let TileStatus::NewKey(k) = status {
+                        self.accessible_keys.insert(k, current_position);
+                    }
                     let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.into_iter().collect());
-                    self.region.insert(current_position);
-                }
-                TileStatus::Free => {
-                    // WETWET
-                    let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.into_iter().collect());
+                    stack.append(&mut neighbors.to_vec().into_iter().collect());
                     self.region.insert(current_position);
                 },
                 _ => ()
@@ -240,7 +234,7 @@ fn part1(input: String) -> u32 {
     let mut state_queue = BinaryHeap::new();
 
     for key in initial_mapping_state.accessible_keys.iter() {
-        state_queue.push(SearchState::new(*key.0, initial_mapping_state.clone(), &entrance_position));
+        state_queue.push(ExplorationState::new(*key.0, initial_mapping_state.clone(), &entrance_position));
     }
 
     let mut min_distance = std::u32::MAX;
@@ -256,6 +250,9 @@ fn part1(input: String) -> u32 {
         }else{
             min_distance = std::cmp::min(min_distance, state.distance_travelled);
         }
+
+        //
+        // Prune if there already is another state with the same collected keys and lower distance
     }
 
     min_distance
