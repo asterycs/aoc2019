@@ -2,9 +2,17 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::cmp::Ordering;
-use std::collections::{HashSet, HashMap, VecDeque, BinaryHeap};
+use std::collections::{HashSet, HashMap, VecDeque};
+use std::iter::FromIterator;
 
 type Map = Vec<Vec<Tile>>;
+
+// TODO: Improvement ideas:
+// * Change u32 -> u8
+// * Do dfs and remember states, prune if the current keys are a subset of
+//   the ones that have already been obtained at a certain position and
+//   the traveled distance is longer
+// * Remove the HashSet conversions, use Vec instead
 
 fn build_map(input: &String) -> Map {
     let mut map = Map::new();
@@ -89,7 +97,7 @@ struct ExplorationState {
     next_key: u32,
     current_position: Vec2u,
     distance_travelled: u32,
-    obtained_keys: HashSet<u32>,
+    obtained_keys: Vec<u32>,
     mapping_state: MappingState
 }
 
@@ -116,19 +124,19 @@ enum TileStatus {
 
 impl ExplorationState {
     fn new(next_key: u32, mapping_state: MappingState, start_position: &Vec2u) -> Self {
-        ExplorationState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: HashSet::new(), mapping_state: mapping_state}
+        ExplorationState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: Vec::new(), mapping_state: mapping_state}
     }
 
     fn pick_up_key(&mut self, key: u32, map: &Map) {
         let key_position = *self.mapping_state.accessible_keys.get(&key).unwrap();
         self.mapping_state.accessible_keys.remove(&key);
-        self.obtained_keys.insert(key);
+        self.obtained_keys.push(key);
 
-        let mut stack = vec![(self.current_position.clone(), 0u32)].into_iter().collect::<VecDeque<_>>();
+        let mut queue = vec![(self.current_position.clone(), 0u32)].into_iter().collect::<VecDeque<_>>();
         let mut visited = HashSet::new();
 
-        while !stack.is_empty() {
-            let (current_position, distance_from_start) = stack.pop_front().unwrap();
+        while !queue.is_empty() {
+            let (current_position, distance_from_start) = queue.pop_front().unwrap();
 
             if current_position == key_position {
                 self.current_position = key_position;
@@ -137,12 +145,12 @@ impl ExplorationState {
                 return;
             }
 
-            let status = self.mapping_state.visit(&visited, &self.obtained_keys, &map, &current_position);
+            let status = self.mapping_state.visit(&visited, &HashSet::from_iter(self.obtained_keys.clone().into_iter()), &map, &current_position);
 
             match status {
                 TileStatus::NewKey(_) | TileStatus::Free => {        
                     let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.into_iter().map(|n| (n.clone(), distance_from_start + 1)).collect());
+                    queue.extend(&mut neighbors.iter().map(|n| (n.clone(), distance_from_start + 1)));
                 },
                 _ => ()
             }
@@ -153,11 +161,21 @@ impl ExplorationState {
         panic!("Couldn't pick up key");
     }
 
-    fn push_next(&self, queue: &mut BinaryHeap<Self>) {
-        for next_key in self.mapping_state.accessible_keys.iter() {
-            let mut new_state = self.clone();
-            new_state.next_key = *next_key.0;
-            queue.push(new_state);
+    fn add_to_queue(&self, queue: &mut HashMap<(Vec<u32>, Vec2u), Self>) {
+        let mut sorted_keys = self.obtained_keys.clone().into_iter().collect::<Vec<_>>();
+        sorted_keys.sort();
+        let key = (sorted_keys, self.current_position);
+
+        // Check if there already is a state that has obtained the same keys with a lower distance
+        match queue.get_mut(&key) {
+            Some(other) => {
+                if self.distance_travelled < other.distance_travelled {
+                    *other = self.clone();
+                }
+            },
+            None => {
+                queue.insert(key.clone(), self.clone());
+            }
         }
     }
 }
@@ -167,7 +185,6 @@ impl MappingState {
         if region.contains(target) {
             return TileStatus::AlreadyVisited;
         }
-
 
         if let Some(row) = map.get(target.r) {
             if let Some(tile) = row.get(target.c) {
@@ -196,11 +213,11 @@ impl MappingState {
     }
 
     fn expand(&mut self, map: &Map, obtained_keys: &HashSet<u32>) {
-        let mut stack = self.threads.drain().collect::<VecDeque<_>>();
+        let mut queue = self.threads.drain().collect::<VecDeque<_>>();
 
         // bfs
-        while !stack.is_empty() {
-            let current_position = stack.pop_front().unwrap();
+        while !queue.is_empty() {
+            let current_position = queue.pop_front().unwrap();
             let status = self.visit(&self.region, &obtained_keys, &map, &current_position);
 
             match status {
@@ -211,8 +228,9 @@ impl MappingState {
                     if let TileStatus::NewKey(k) = status {
                         self.accessible_keys.insert(k, current_position);
                     }
+
                     let neighbors = get_neighbors(&current_position);
-                    stack.append(&mut neighbors.to_vec().into_iter().collect());
+                    queue.extend(neighbors.iter());
                     self.region.insert(current_position);
                 },
                 _ => ()
@@ -231,28 +249,45 @@ fn part1(input: String) -> u32 {
 
     let mut initial_mapping_state = MappingState::new(&entrance_position);
     initial_mapping_state.expand(&map, &HashSet::new());
-    let mut state_queue = BinaryHeap::new();
+    let mut state_queue = Vec::new();
+    let mut next_queue = HashMap::new();
 
     for key in initial_mapping_state.accessible_keys.iter() {
         state_queue.push(ExplorationState::new(*key.0, initial_mapping_state.clone(), &entrance_position));
     }
 
     let mut min_distance = std::u32::MAX;
+    let mut obtained_keys = 0;
 
     while !state_queue.is_empty() {
-        let mut state = state_queue.pop().unwrap();
+        // Pick up the next key, prune if a cheaper state already was seen
+        while !state_queue.is_empty() {
+            let mut state = state_queue.pop().unwrap();
 
-        state.pick_up_key(state.next_key, &map);
-        state.mapping_state.expand(&map, &state.obtained_keys);
+            if state.obtained_keys.len() > obtained_keys {
+                obtained_keys = state.obtained_keys.len();
+                println!("obtained keys: {}", state.obtained_keys.len());
+            }
 
-        if !state.mapping_state.accessible_keys.is_empty() {
-            state.push_next(&mut state_queue);
-        }else{
-            min_distance = std::cmp::min(min_distance, state.distance_travelled);
+            state.pick_up_key(state.next_key, &map);
+            state.mapping_state.expand(&map, &HashSet::from_iter(state.obtained_keys.clone().into_iter()));
+
+            if !state.mapping_state.accessible_keys.is_empty() {
+                state.add_to_queue(&mut next_queue);
+            }else{
+                min_distance = std::cmp::min(min_distance, state.distance_travelled);
+            }
         }
 
-        //
-        // Prune if there already is another state with the same collected keys and lower distance
+        // Expand the queued states
+        for (_, state) in next_queue.drain().into_iter() {        
+            for next_key in state.mapping_state.accessible_keys.iter() {
+                let mut new_state = state.clone();
+                new_state.next_key = *next_key.0;
+
+                state_queue.push(new_state);
+            }
+        }
     }
 
     min_distance
