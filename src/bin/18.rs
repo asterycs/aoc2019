@@ -3,16 +3,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::cmp::Ordering;
 use std::collections::{HashSet, HashMap, VecDeque};
-use std::iter::FromIterator;
 
 type Map = Vec<Vec<Tile>>;
-
-// TODO: Improvement ideas:
-// * Change u32 -> u8
-// * Do dfs and remember states, prune if the current keys are a subset of
-//   the ones that have already been obtained at a certain position and
-//   the traveled distance is longer
-// * Remove the HashSet conversions, use Vec instead
 
 fn build_map(input: &String) -> Map {
     let mut map = Map::new();
@@ -52,8 +44,8 @@ enum Tile {
     Empty,
     Entrance,
     Wall,
-    Key(u32),
-    Door(u32)
+    Key(u8),
+    Door(u8)
 }
 
 impl From<char> for Tile {
@@ -62,8 +54,8 @@ impl From<char> for Tile {
             '#' => Tile::Wall,
             '.' => Tile::Empty,
             '@' => Tile::Entrance,
-            'A'..='Z' => Tile::Door(c as u32 - 65),
-            'a'..='z' => Tile::Key(c as u32 - 97),
+            'A'..='Z' => Tile::Door(c as u8 - 65),
+            'a'..='z' => Tile::Key(c as u8 - 97),
             _ => panic!("Unknown tile"),
         }
     }
@@ -88,16 +80,16 @@ fn get_neighbors(target: &Vec2u) -> [Vec2u; 4] {
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct MappingState {
     region: HashSet<Vec2u>,
-    threads: HashSet<Vec2u>,
-    accessible_keys: HashMap<u32, Vec2u>
+    threads: Vec<Vec2u>,
+    accessible_keys: HashMap<u8, Vec2u>
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct ExplorationState {
-    next_key: u32,
+    next_key: u8,
     current_position: Vec2u,
     distance_travelled: u32,
-    obtained_keys: Vec<u32>,
+    obtained_keys: Vec<u8>,
     mapping_state: MappingState
 }
 
@@ -118,16 +110,16 @@ enum TileStatus {
     Free,
     Inaccessible,
     AlreadyVisited,
-    NewKey(u32),
+    NewKey(u8),
     MissingKey
 }
 
 impl ExplorationState {
-    fn new(next_key: u32, mapping_state: MappingState, start_position: &Vec2u) -> Self {
+    fn new(next_key: u8, mapping_state: MappingState, start_position: &Vec2u) -> Self {
         ExplorationState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: Vec::new(), mapping_state: mapping_state}
     }
 
-    fn pick_up_key(&mut self, key: u32, map: &Map) {
+    fn pick_up_key(&mut self, key: u8, map: &Map) {
         let key_position = *self.mapping_state.accessible_keys.get(&key).unwrap();
         self.mapping_state.accessible_keys.remove(&key);
         self.obtained_keys.push(key);
@@ -145,7 +137,7 @@ impl ExplorationState {
                 return;
             }
 
-            let status = self.mapping_state.visit(&visited, &HashSet::from_iter(self.obtained_keys.clone().into_iter()), &map, &current_position);
+            let status = self.mapping_state.visit(&visited, &self.obtained_keys, &map, &current_position);
 
             match status {
                 TileStatus::NewKey(_) | TileStatus::Free => {        
@@ -161,7 +153,7 @@ impl ExplorationState {
         panic!("Couldn't pick up key");
     }
 
-    fn add_to_queue(&self, queue: &mut HashMap<(Vec<u32>, Vec2u), Self>) {
+    fn add_to_queue(&self, queue: &mut HashMap<(Vec<u8>, Vec2u), Self>) {
         let mut sorted_keys = self.obtained_keys.clone().into_iter().collect::<Vec<_>>();
         sorted_keys.sort();
         let key = (sorted_keys, self.current_position);
@@ -181,7 +173,7 @@ impl ExplorationState {
 }
 
 impl MappingState {
-    fn visit(&self, region: &HashSet<Vec2u>, obtained_keys: &HashSet<u32>, map: &Map, target: &Vec2u) -> TileStatus {
+    fn visit(&self, region: &HashSet<Vec2u>, obtained_keys: &Vec<u8>, map: &Map, target: &Vec2u) -> TileStatus {
         if region.contains(target) {
             return TileStatus::AlreadyVisited;
         }
@@ -212,8 +204,8 @@ impl MappingState {
         return TileStatus::Inaccessible
     }
 
-    fn expand(&mut self, map: &Map, obtained_keys: &HashSet<u32>) {
-        let mut queue = self.threads.drain().collect::<VecDeque<_>>();
+    fn expand(&mut self, map: &Map, obtained_keys: &Vec<u8>) {
+        let mut queue = self.threads.drain(..).collect::<VecDeque<_>>();
 
         // bfs
         while !queue.is_empty() {
@@ -222,7 +214,7 @@ impl MappingState {
 
             match status {
                 TileStatus::MissingKey => {
-                    self.threads.insert(current_position);
+                    self.threads.push(current_position);
                 },
                 TileStatus::Free | TileStatus::NewKey(_) => {
                     if let TileStatus::NewKey(k) = status {
@@ -239,7 +231,7 @@ impl MappingState {
     }
 
     fn new(entrance: &Vec2u) -> Self {
-        MappingState{region: HashSet::new(), threads: vec![*entrance].into_iter().collect(), accessible_keys: HashMap::new()}
+        MappingState{region: HashSet::new(), threads: vec![*entrance], accessible_keys: HashMap::new()}
     }
 }
 
@@ -248,7 +240,7 @@ fn part1(input: String) -> u32 {
     let entrance_position = find_entrance(&map).expect("No entrance?");
 
     let mut initial_mapping_state = MappingState::new(&entrance_position);
-    initial_mapping_state.expand(&map, &HashSet::new());
+    initial_mapping_state.expand(&map, &Vec::new());
     let mut state_queue = Vec::new();
     let mut next_queue = HashMap::new();
 
@@ -270,7 +262,7 @@ fn part1(input: String) -> u32 {
             }
 
             state.pick_up_key(state.next_key, &map);
-            state.mapping_state.expand(&map, &HashSet::from_iter(state.obtained_keys.clone().into_iter()));
+            state.mapping_state.expand(&map, &state.obtained_keys);
 
             if !state.mapping_state.accessible_keys.is_empty() {
                 state.add_to_queue(&mut next_queue);
