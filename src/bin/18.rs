@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::cmp::Ordering;
 use std::collections::{HashSet, HashMap, VecDeque};
+use std::hash::Hash;
 
 type Map = Vec<Vec<Tile>>;
 
@@ -61,16 +62,18 @@ impl From<char> for Tile {
     }
 }
 
-fn find_entrance(map: &Map) -> Option<Vec2u> {
+fn find_entrances(map: &Map) -> Vec<Vec2u> {
+    let mut entrances = Vec::new();
+
     for (row, line) in map.iter().enumerate() {
         for (col, tile) in line.iter().enumerate() {
             if *tile == Tile::Entrance {
-                return Some(Vec2u{r: row, c: col});
+                entrances.push(Vec2u{r: row, c: col});
             }
         }
     }
 
-    None
+    entrances
 }
 
 fn get_neighbors(target: &Vec2u) -> [Vec2u; 4] {
@@ -86,11 +89,16 @@ struct MappingState {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct ExplorationState {
-    next_key: u8,
     current_position: Vec2u,
     distance_travelled: u32,
     obtained_keys: Vec<u8>,
     mapping_state: MappingState
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct ExplorationTask {
+    next_key: u8,
+    explorer: ExplorationState
 }
 
 impl Ord for ExplorationState {
@@ -115,11 +123,11 @@ enum TileStatus {
 }
 
 impl ExplorationState {
-    fn new(next_key: u8, mapping_state: MappingState, start_position: &Vec2u) -> Self {
-        ExplorationState{next_key: next_key, current_position: *start_position, distance_travelled: 0, obtained_keys: Vec::new(), mapping_state: mapping_state}
+    fn new(mapping_state: MappingState, start_position: &Vec2u) -> Self {
+        ExplorationState{current_position: *start_position, distance_travelled: 0, obtained_keys: Vec::new(), mapping_state: mapping_state}
     }
 
-    fn pick_up_key(&mut self, key: u8, map: &Map) {
+    fn pick_up_key(&mut self, key: u8, map: &Map, obtained_keys: &Vec<u8>) {
         let key_position = *self.mapping_state.accessible_keys.get(&key).unwrap();
         self.mapping_state.accessible_keys.remove(&key);
         self.obtained_keys.push(key);
@@ -137,7 +145,7 @@ impl ExplorationState {
                 return;
             }
 
-            let status = self.mapping_state.visit(&visited, &self.obtained_keys, &map, &current_position);
+            let status = self.mapping_state.visit(&visited, &obtained_keys, &map, &current_position);
 
             match status {
                 TileStatus::NewKey(_) | TileStatus::Free => {        
@@ -177,6 +185,7 @@ impl MappingState {
         if region.contains(target) {
             return TileStatus::AlreadyVisited;
         }
+
 
         if let Some(row) = map.get(target.r) {
             if let Some(tile) = row.get(target.c) {
@@ -230,54 +239,215 @@ impl MappingState {
         }
     }
 
-    fn new(entrance: &Vec2u) -> Self {
-        MappingState{region: HashSet::new(), threads: vec![*entrance], accessible_keys: HashMap::new()}
+    fn new(start_position: Vec2u) -> Self {
+        MappingState{region: HashSet::new(), threads: vec![start_position], accessible_keys: HashMap::new()}
     }
 }
 
 fn part1(input: String) -> u32 {
     let map = build_map(&input);
-    let entrance_position = find_entrance(&map).expect("No entrance?");
+    let entrance_position = find_entrances(&map);
 
-    let mut initial_mapping_state = MappingState::new(&entrance_position);
+    let mut initial_mapping_state = MappingState::new(entrance_position.first().unwrap().clone());
     initial_mapping_state.expand(&map, &Vec::new());
-    let mut state_queue = Vec::new();
+    let mut task_queue = Vec::new();
     let mut next_queue = HashMap::new();
 
     for key in initial_mapping_state.accessible_keys.iter() {
-        state_queue.push(ExplorationState::new(*key.0, initial_mapping_state.clone(), &entrance_position));
+        task_queue.push(ExplorationTask{next_key: *key.0, explorer: ExplorationState::new(initial_mapping_state.clone(), entrance_position.first().unwrap())});
     }
 
     let mut min_distance = std::u32::MAX;
-    let mut obtained_keys = 0;
+    let mut num_obtained_keys = 0;
 
-    while !state_queue.is_empty() {
+    while !task_queue.is_empty() {
         // Pick up the next key, prune if a cheaper state already was seen
-        while !state_queue.is_empty() {
-            let mut state = state_queue.pop().unwrap();
+        while !task_queue.is_empty() {
+            let mut task = task_queue.pop().unwrap();
+            let explorer = &mut task.explorer;
+            let obtained_keys = explorer.obtained_keys.clone();
 
-            if state.obtained_keys.len() > obtained_keys {
-                obtained_keys = state.obtained_keys.len();
-                println!("obtained keys: {}", state.obtained_keys.len());
+            if explorer.obtained_keys.len() > num_obtained_keys {
+                num_obtained_keys = obtained_keys.len();
+                println!("obtained keys: {}", obtained_keys.len());
             }
 
-            state.pick_up_key(state.next_key, &map);
-            state.mapping_state.expand(&map, &state.obtained_keys);
+            explorer.pick_up_key(task.next_key, &map, &obtained_keys);
+            explorer.mapping_state.expand(&map, &explorer.obtained_keys);
 
-            if !state.mapping_state.accessible_keys.is_empty() {
-                state.add_to_queue(&mut next_queue);
+            if !explorer.mapping_state.accessible_keys.is_empty() {
+                explorer.add_to_queue(&mut next_queue);
             }else{
-                min_distance = std::cmp::min(min_distance, state.distance_travelled);
+                min_distance = std::cmp::min(min_distance, explorer.distance_travelled);
             }
         }
 
         // Expand the queued states
         for (_, state) in next_queue.drain().into_iter() {        
             for next_key in state.mapping_state.accessible_keys.iter() {
-                let mut new_state = state.clone();
-                new_state.next_key = *next_key.0;
+                let new_task = ExplorationTask{next_key: *next_key.0, explorer: state.clone()};
 
-                state_queue.push(new_state);
+                task_queue.push(new_task);
+            }
+        }
+    }
+
+    min_distance
+}
+
+fn replace(pos: &Vec2u, block: &Map, map: &mut Map) {
+    let end_row = pos.r + block.len();
+    let end_col = pos.c + block.first().unwrap().len();
+
+    for (block_row, map_row) in (pos.r..end_row).enumerate() {
+        for (block_col, map_col) in (pos.c..end_col).enumerate() {
+            map[map_row][map_col] = block[block_row][block_col];
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct ExplorationTaskMulti {
+    next_key: u8,
+    next_explorer_idx: usize,
+    explorers: Vec<ExplorationState>
+}
+
+impl ExplorationTaskMulti {
+    fn expand_all(&mut self, map: &Map) {
+        let obtained_keys = self.get_obtained_keys();
+
+        for explorer in self.explorers.iter_mut() {
+            explorer.mapping_state.expand(map, &obtained_keys);
+        }
+    }
+
+    fn are_there_keys_left(&self) -> bool {
+        for explorer in self.explorers.iter() {
+            if explorer.mapping_state.accessible_keys.len() > 0 {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    fn get_obtained_keys(&self) -> Vec<u8> {
+        let mut obtained_keys = Vec::new();
+
+        for explorer in self.explorers.iter() {
+            obtained_keys.extend(explorer.obtained_keys.clone());
+        }
+
+        obtained_keys
+    }
+
+    fn get_current_explorer_positions(&self) -> Vec<Vec2u> {
+        let mut positions = Vec::new();
+
+        for explorer in self.explorers.iter() {
+            positions.push(explorer.current_position);
+        }
+
+        positions
+    }
+
+    fn get_total_travelled_distance(&self) -> u32 {
+        self.explorers.iter().fold(0u32, |mut sum, state| {sum += state.distance_travelled; sum})
+    }
+
+
+    fn add_to_queue(&self, queue: &mut HashMap<(Vec<u8>, Vec<Vec2u>), Vec<ExplorationState>>) {
+        let mut sorted_keys = self.get_obtained_keys();
+        sorted_keys.sort();
+        let positions = self.get_current_explorer_positions();
+
+        // Check if there already is a state that has obtained the same keys with a lower distance
+        match queue.get_mut(&(sorted_keys.clone(), positions.clone())) {
+            Some(other) => {
+                let rhs_distance = other.iter().fold(0u32, |mut sum, state| {sum += state.distance_travelled; sum});
+                let self_distance = self.get_total_travelled_distance();
+
+                if self_distance < rhs_distance {
+                    *other = self.explorers.clone();
+                }
+            },
+            None => {
+                queue.insert((sorted_keys.clone(), positions.clone()), self.explorers.clone());
+            }
+        }
+    }
+}
+
+fn part2(input: String) -> u32 {
+    let mut map = build_map(&input);
+    let entrance_position = find_entrances(&map).first().unwrap().to_owned();
+    let block = build_map(&"@#@\n###\n@#@".to_owned());
+
+    let block_upper_left = Vec2u{r: entrance_position.r - 1, c: entrance_position.c - 1};
+    replace(&block_upper_left, &block, &mut map);
+
+    let entrance_positions = find_entrances(&map);
+    let mut task_queue = Vec::new();
+    let mut next_queue = HashMap::new();
+
+
+    let mut initial_exploration_states = Vec::new();
+
+    for entrance_position in entrance_positions.into_iter() {
+        let mut initial_mapping_state = MappingState::new(entrance_position);
+        initial_mapping_state.expand(&map, &Vec::new());
+        initial_exploration_states.push(ExplorationState::new(initial_mapping_state, &entrance_position));
+    }
+
+    for (idx, initial_exploration_state) in initial_exploration_states.iter().enumerate() {
+        for key in initial_exploration_state.mapping_state.accessible_keys.iter() {
+            task_queue.push(ExplorationTaskMulti{next_key: *key.0, next_explorer_idx: idx, explorers: initial_exploration_states.clone()});
+        }
+    }
+
+    let mut min_distance = std::u32::MAX;
+    let mut num_obtained_keys: usize = 0;
+
+    while !task_queue.is_empty() {
+        // Pick up the next key, prune if a cheaper state already was seen
+        while !task_queue.is_empty() {
+            let mut task = task_queue.pop().unwrap();
+            let obtained_keys = task.get_obtained_keys();
+
+            if obtained_keys.len() > num_obtained_keys {
+                num_obtained_keys = obtained_keys.len();
+                println!("obtained keys: {}", obtained_keys.len());
+            }
+
+            task.explorers[task.next_explorer_idx].pick_up_key(task.next_key, &map, &obtained_keys);
+            task.expand_all(&map);
+
+
+            if task.are_there_keys_left() {
+                task.add_to_queue(&mut next_queue);
+            }else{
+                min_distance = std::cmp::min(min_distance, task.get_total_travelled_distance());
+            }
+        }
+
+        let mut current_min_distance = std::u32::MAX;
+
+        for task in next_queue.iter() {
+            current_min_distance = std::cmp::min(task.1.iter().fold(0u32, |mut sum, state| {sum += state.distance_travelled; sum}), current_min_distance);
+        }
+
+        // Expand the queued states
+        for (_, explorers) in next_queue.drain().into_iter() {        
+            for (explorer_idx, explorer) in explorers.iter().enumerate() {
+                for (next_key, _) in explorer.mapping_state.accessible_keys.iter() {
+                    let new_task = ExplorationTaskMulti{next_key: *next_key, next_explorer_idx: explorer_idx, explorers: explorers.clone()};
+
+                    // TODO: Eliminate this magic constant
+                    if new_task.get_total_travelled_distance() < 2 * current_min_distance {
+                        task_queue.push(new_task);
+                    }
+                }
             }
         }
     }
@@ -288,64 +458,59 @@ fn part1(input: String) -> u32 {
 fn main() {
     let input = get_input();
 
-    let steps = part1(input);
+    let steps = part1(input.clone());
+    println!("part 1 steps: {}", steps);
 
-    println!("steps: {}", steps);
+    let steps = part2(input);
+    println!("part 2 steps: {}", steps);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn part1_test_input0() -> String {
-        "#########\n#b.A.@.a#\n#########".to_owned()
-    }
-
     #[test]
     fn part1_test0() {
-        let input = part1_test_input0();
+        let input = "#########\n#b.A.@.a#\n#########".to_owned();
 
         let steps = part1(input);
 
         assert_eq!(steps, 8);
     }
 
-    fn part1_test_input1() -> String {
-        "########################\n#f.D.E.e.C.b.A.@.a.B.c.#\n######################.#\n#d.....................#\n########################".to_owned()
-    }
-
     #[test]
     fn part1_test1() {
-        let input = part1_test_input1();
+        let input = "########################\n#f.D.E.e.C.b.A.@.a.B.c.#\n######################.#\n#d.....................#\n########################".to_owned();
 
         let steps = part1(input);
 
         assert_eq!(steps, 86);
     }
 
-    fn part1_test_input2() -> String {
-        "########################\n#...............b.C.D.f#\n#.######################\n#.....@.a.B.c.d.A.e.F.g#\n########################".to_owned()
-    }
-
     #[test]
     fn part1_test2() {
-        let input = part1_test_input2();
+        let input = "########################\n#...............b.C.D.f#\n#.######################\n#.....@.a.B.c.d.A.e.F.g#\n########################".to_owned();
 
         let steps = part1(input);
 
         assert_eq!(steps, 132);
     }
 
-    fn part1_test_input3() -> String {
-        "#################\n#i.G..c...e..H.p#\n########.########\n#j.A..b...f..D.o#\n########@########\n#k.E..a...g..B.n#\n########.########\n#l.F..d...h..C.m#\n#################".to_owned()
+    #[test]
+    fn part2_test0() {
+        let input = "#######\n#a.#Cd#\n##...##\n##.@.##\n##...##\n#cB#Ab#\n#######".to_owned();
+
+        let steps = part2(input);
+
+        assert_eq!(steps, 8);
     }
 
     #[test]
-    fn part1_test3() {
-        let input = part1_test_input3();
+    fn part2_test1() {
+        let input = "#############\n#DcBa.#.GhKl#\n#.###...#I###\n#e#d#.@.#j#k#\n###C#...###J#\n#fEbA.#.FgHi#\n#############".to_owned();
 
-        let steps = part1(input);
+        let steps = part2(input);
 
-        assert_eq!(steps, 136);
+        assert_eq!(steps, 32);
     }
 }
