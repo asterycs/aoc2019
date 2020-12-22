@@ -109,7 +109,7 @@ impl Instruction for Add {
         _input_buffer: &mut VecDeque<isize>,
         _output_buffer: &mut VecDeque<isize>,
     ) -> VMStatus {
-        drop(vm.memory.insert(self.dest, self.lhs + self.rhs));
+        vm.memory.insert(self.dest, self.lhs + self.rhs);
 
         if self.dest != vm.instruction_ptr {
             vm.instruction_ptr += self.get_len();
@@ -150,7 +150,7 @@ impl Instruction for Mult {
         _input_buffer: &mut VecDeque<isize>,
         _output_buffer: &mut VecDeque<isize>,
     ) -> VMStatus {
-        drop(vm.memory.insert(self.dest, self.lhs * self.rhs));
+        vm.memory.insert(self.dest, self.lhs * self.rhs);
 
         if self.dest != vm.instruction_ptr {
             vm.instruction_ptr += self.get_len();
@@ -196,7 +196,7 @@ impl Instruction for LessThan {
             false => 0,
         };
 
-        drop(vm.memory.insert(self.dest, res));
+        vm.memory.insert(self.dest, res);
 
         if self.dest != vm.instruction_ptr {
             vm.instruction_ptr += self.get_len();
@@ -242,7 +242,7 @@ impl Instruction for Equals {
             false => 0,
         };
 
-        drop(vm.memory.insert(self.dest, res));
+        vm.memory.insert(self.dest, res);
 
         if self.dest != vm.instruction_ptr {
             vm.instruction_ptr += self.get_len();
@@ -282,10 +282,7 @@ impl Instruction for Input {
         if input_buffer.is_empty() {
             VMStatus::EmptyInputBuffer
         } else {
-            drop(
-                vm.memory
-                    .insert(self.dest, input_buffer.pop_front().unwrap()),
-            );
+            vm.memory.insert(self.dest, input_buffer.pop_front().unwrap());
 
             if self.dest != vm.instruction_ptr {
                 vm.instruction_ptr += self.get_len();
