@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 use intcode::*;
 
+const SIZE: u32 = 100;
+
 fn get_input() -> String {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     filename.push("inputs/19.txt");
@@ -67,14 +69,7 @@ fn draw_view(map: &Map) {
     print!("{}", to_draw);
 }
 
-fn main() {
-    let input = get_input();
-
-    let program = &mut input
-        .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
-        .collect::<Vec<_>>();
-
+fn part1(program: &Vec<isize>) -> u32 {
     let coordinates = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
 
@@ -98,7 +93,82 @@ fn main() {
 
     let sum: isize = output_queue.iter().sum();
 
-    println!("part1: {}", sum);
+    sum as u32
+}
+
+fn has_traction(coordinate: &Vec2u, program: &Vec<isize>) -> bool {
+    let input_queue = &mut VecDeque::new();
+    let output_queue = &mut VecDeque::new();
+
+    input_queue.push_back(coordinate.x as isize);
+    input_queue.push_back(coordinate.y as isize);
+
+    let mut vm = IntcodeVM::new(program);
+    run(&mut vm, input_queue, output_queue);
+
+    output_queue.pop_front().unwrap() == 1
+}
+
+fn fits_in_x(program: &Vec<isize>, upper_right_corner: &Vec2u) -> bool {
+    let mut runner = *upper_right_corner;
+    for x in 0..SIZE {
+        runner.x -= 1;
+
+        if !has_traction(&runner, program) {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
+    let mut runner = *upper_left_corner;
+    for y in 0..SIZE-1 {
+        runner.y += 1;
+        if !has_traction(&runner, program) {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn part2(program: &Vec<isize>) -> u32 {
+    let mut upper_right_corner = Vec2u{x: 4, y: 3};
+
+    loop {
+        if fits_in_x(program, &upper_right_corner) && fits_in_y(program, &Vec2u{x: upper_right_corner.x - SIZE + 1, y: upper_right_corner.y}) {
+            println!("found it!  Upper right: {:?}", upper_right_corner);
+            break;
+        }else{
+            upper_right_corner.y += 1;
+
+            loop {
+                let upper_right_corner_candidate = Vec2u{x: upper_right_corner.x + 1, y: upper_right_corner.y};
+
+                if !has_traction(&upper_right_corner_candidate, program) {
+                    break;
+                }
+
+                upper_right_corner.x += 1;
+            }
+        }
+    }
+
+    (upper_right_corner.x - SIZE + 1) * 10000 + upper_right_corner.y
+}
+
+fn main() {
+    let input = get_input();
+
+    let program = input
+        .split(",")
+        .map(|x| x.parse::<isize>().unwrap())
+        .collect::<Vec<_>>();
+
+    println!("part 1: {}", part1(&program));
+    println!("part 2: {}", part2(&program));
 }
 
 #[cfg(test)]
