@@ -170,9 +170,3 @@ fn main() {
     println!("part 1: {}", part1(&program));
     println!("part 2: {}", part2(&program));
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-}
