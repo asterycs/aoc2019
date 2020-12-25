@@ -58,79 +58,51 @@ fn main() {
 mod tests {
     use super::*;
 
-    fn part1_input0() -> Vec<i32> {
-        vec![12]
-    }
-
     #[test]
     fn part1_test0() {
-        let test_input = part1_input0();
+        let test_input = vec![12];
 
         assert_eq!(get_fuel1(&test_input), 2);
-    }
-
-    fn part1_input1() -> Vec<i32> {
-        vec![14]
     }
 
     #[test]
     fn part1_test1() {
-        let test_input = part1_input1();
+        let test_input = vec![14];
 
         assert_eq!(get_fuel1(&test_input), 2);
     }
 
-    fn part1_input2() -> Vec<i32> {
-        vec![1969]
-    }
-
     #[test]
     fn part1_test2() {
-        let test_input = part1_input2();
+        let test_input = vec![1969];
 
         assert_eq!(get_fuel1(&test_input), 654);
     }
 
-    fn part1_input3() -> Vec<i32> {
-        vec![100756]
-    }
-
     #[test]
     fn part1_test3() {
-        let test_input = part1_input3();
+        let test_input = vec![100756];
 
         assert_eq!(get_fuel1(&test_input), 33583);
     }
 
-    fn part2_input0() -> Vec<i32> {
-        vec![14]
-    }
-
     #[test]
     fn part2_test0() {
-        let test_input = part2_input0();
+        let test_input = vec![14];
 
         assert_eq!(get_fuel2(&test_input), 2);
     }
 
-    fn part2_input1() -> Vec<i32> {
-        vec![1969]
-    }
-
     #[test]
     fn part2_test1() {
-        let test_input = part2_input1();
+        let test_input = vec![1969];
 
         assert_eq!(get_fuel2(&test_input), 966);
     }
 
-    fn part2_input2() -> Vec<i32> {
-        vec![100756]
-    }
-
     #[test]
     fn part2_test2() {
-        let test_input = part2_input2();
+        let test_input = vec![100756];
 
         assert_eq!(get_fuel2(&test_input), 50346);
     }
