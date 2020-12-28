@@ -13,13 +13,6 @@ struct Coord {
 }
 
 impl Coord {
-    fn is_aligned(&self, other: &Coord) -> bool {
-        let y1 = other.x * self.y;
-        let y2 = self.x * other.y;
-
-        y1 == y2
-    }
-
     fn length2(&self) -> usize {
         (self.x * self.x + self.y * self.y) as usize
     }
@@ -139,7 +132,7 @@ fn main() {
     println!("Max visible: {:?}", max_view.len());
     println!("At location: {:?}", max_asteroid);
 
-    max_view.iter_mut().for_each(|(dir, list)| {
+    max_view.iter_mut().for_each(|(_dir, list)| {
         list.sort_by(|a, b| a.length2().partial_cmp(&b.length2()).unwrap())
     });
 

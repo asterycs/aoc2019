@@ -63,99 +63,6 @@ fn to_num_vec(input: &str) -> Vec<i32> {
         .collect::<Vec<_>>()
 }
 
-fn ex_data() -> (InputGenerator, Vec<i32>) {
-    let input = "12345678";
-    let output = "48226158";
-
-    (
-        InputGenerator::new(to_num_vec(input), 1),
-        to_num_vec(output),
-    )
-}
-
-fn test11_data() -> (InputGenerator, Vec<i32>) {
-    let input = "80871224585914546619083218645595";
-    let output = "24176176";
-
-    (
-        InputGenerator::new(to_num_vec(input), 1),
-        to_num_vec(output),
-    )
-}
-
-fn test12_data() -> (InputGenerator, Vec<i32>) {
-    let input = "19617804207202209144916044189917";
-    let output = "73745418";
-
-    (
-        InputGenerator::new(to_num_vec(input), 1),
-        to_num_vec(output),
-    )
-}
-
-fn test13_data() -> (InputGenerator, Vec<i32>) {
-    let input = "69317163492948606335995924319873";
-    let output = "52432133";
-
-    (
-        InputGenerator::new(to_num_vec(input), 1),
-        to_num_vec(output),
-    )
-}
-
-fn test21_data() -> (InputGenerator, usize, Vec<i32>) {
-    let input = "03036732577212944063491565474664";
-    let output = "84462026";
-
-    let skip = input
-        .chars()
-        .take(7)
-        .collect::<String>()
-        .parse::<usize>()
-        .unwrap();
-
-    (
-        InputGenerator::new(to_num_vec(input), 10000),
-        skip,
-        to_num_vec(output),
-    )
-}
-
-fn test22_data() -> (InputGenerator, usize, Vec<i32>) {
-    let input = "02935109699940807407585447034323";
-    let output = "78725270";
-
-    let skip = input
-        .chars()
-        .take(7)
-        .collect::<String>()
-        .parse::<usize>()
-        .unwrap();
-
-    (
-        InputGenerator::new(to_num_vec(input), 10000),
-        skip,
-        to_num_vec(output),
-    )
-}
-
-fn test23_data() -> (InputGenerator, usize, Vec<i32>) {
-    let input = "03081770884921959731165446850517";
-    let output = "53553731";
-    let skip = input
-        .chars()
-        .take(7)
-        .collect::<String>()
-        .parse::<usize>()
-        .unwrap();
-
-    (
-        InputGenerator::new(to_num_vec(input), 10000),
-        skip,
-        to_num_vec(output),
-    )
-}
-
 fn get_input() -> String {
     let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     filename.push("inputs/16.txt");
@@ -277,9 +184,102 @@ fn main() {
 mod tests {
     use super::*;
 
+    fn example_data() -> (InputGenerator, Vec<i32>) {
+        let input = "12345678";
+        let output = "48226158";
+    
+        (
+            InputGenerator::new(to_num_vec(input), 1),
+            to_num_vec(output),
+        )
+    }
+    
+    fn part1_test1_data() -> (InputGenerator, Vec<i32>) {
+        let input = "80871224585914546619083218645595";
+        let output = "24176176";
+    
+        (
+            InputGenerator::new(to_num_vec(input), 1),
+            to_num_vec(output),
+        )
+    }
+    
+    fn part1_test2_data() -> (InputGenerator, Vec<i32>) {
+        let input = "19617804207202209144916044189917";
+        let output = "73745418";
+    
+        (
+            InputGenerator::new(to_num_vec(input), 1),
+            to_num_vec(output),
+        )
+    }
+    
+    fn part1_test3_data() -> (InputGenerator, Vec<i32>) {
+        let input = "69317163492948606335995924319873";
+        let output = "52432133";
+    
+        (
+            InputGenerator::new(to_num_vec(input), 1),
+            to_num_vec(output),
+        )
+    }
+    
+    fn part2_test1_data() -> (InputGenerator, usize, Vec<i32>) {
+        let input = "03036732577212944063491565474664";
+        let output = "84462026";
+    
+        let skip = input
+            .chars()
+            .take(7)
+            .collect::<String>()
+            .parse::<usize>()
+            .unwrap();
+    
+        (
+            InputGenerator::new(to_num_vec(input), 10000),
+            skip,
+            to_num_vec(output),
+        )
+    }
+    
+    fn part2_test2_data() -> (InputGenerator, usize, Vec<i32>) {
+        let input = "02935109699940807407585447034323";
+        let output = "78725270";
+    
+        let skip = input
+            .chars()
+            .take(7)
+            .collect::<String>()
+            .parse::<usize>()
+            .unwrap();
+    
+        (
+            InputGenerator::new(to_num_vec(input), 10000),
+            skip,
+            to_num_vec(output),
+        )
+    }
+    
+    fn part2_test3_data() -> (InputGenerator, usize, Vec<i32>) {
+        let input = "03081770884921959731165446850517";
+        let output = "53553731";
+        let skip = input
+            .chars()
+            .take(7)
+            .collect::<String>()
+            .parse::<usize>()
+            .unwrap();
+    
+        (
+            InputGenerator::new(to_num_vec(input), 10000),
+            skip,
+            to_num_vec(output),
+        )
+    }
+
     #[test]
     fn ex() {
-        let (input, ground_truth) = ex_data();
+        let (input, ground_truth) = example_data();
 
         let output = fft(input, 1);
 
@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn test11() {
-        let (input, ground_truth) = test11_data();
+        let (input, ground_truth) = part1_test1_data();
         let output = fft(input, 100);
 
         assert_eq!(output[0..8], ground_truth[..]);
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn test12() {
-        let (input, ground_truth) = test12_data();
+        let (input, ground_truth) = part1_test2_data();
         let output = fft(input, 100);
 
         assert_eq!(output[0..8], ground_truth[..]);
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn test13() {
-        let (input, ground_truth) = test13_data();
+        let (input, ground_truth) = part1_test3_data();
         let output = fft(input, 100);
 
         assert_eq!(output[0..8], ground_truth[..]);
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn test21() {
-        let (input, skip, ground_truth) = test21_data();
+        let (input, skip, ground_truth) = part2_test1_data();
         let output = fft_fake(input, 100, skip);
 
         assert_eq!(output[0..8], ground_truth[..]);
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn test22() {
-        let (input, skip, ground_truth) = test22_data();
+        let (input, skip, ground_truth) = part2_test2_data();
         let output = fft_fake(input, 100, skip);
 
         assert_eq!(output[0..8], ground_truth[..]);
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn test23() {
-        let (input, skip, ground_truth) = test23_data();
+        let (input, skip, ground_truth) = part2_test3_data();
         let output = fft_fake(input, 100, skip);
 
         assert_eq!(output[0..8], ground_truth[..]);

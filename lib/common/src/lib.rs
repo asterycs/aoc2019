@@ -29,10 +29,10 @@ macro_rules! intcode_task {
 
             let program = program.expect("Invalid intcode program");
 
-            println!("{} output: {}", stringify!($func_name1), $func_name1(program.clone()));
+            println!("{} returned: {:?}", stringify!($func_name1), $func_name1(program.clone()));
 
             $(
-                println!("{} output: {}", stringify!($func_name2), $func_name2(program.clone()));
+                println!("{} returned: {:?}", stringify!($func_name2), $func_name2(program.clone()));
             )*
         }
     };

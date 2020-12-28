@@ -27,26 +27,6 @@ impl FromStr for Moon {
     }
 }
 
-impl Moon {
-    fn get_kin(&self) -> isize {
-        self.vel[0].abs() + self.vel[1].abs() + self.vel[2].abs()
-    }
-
-    fn get_pot(&self) -> isize {
-        self.pos[0].abs() + self.pos[1].abs() + self.pos[2].abs()
-    }
-}
-
-fn get_total_energy(moons: &Vec<Moon>) -> isize {
-    let mut energy = 0;
-
-    for m in moons.iter() {
-        energy += m.get_pot() * m.get_kin();
-    }
-
-    energy
-}
-
 fn get_acc(l: isize, r: isize) -> isize {
     if l < r {
         1

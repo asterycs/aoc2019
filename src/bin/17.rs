@@ -1,21 +1,8 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 
+use common::*;
 use intcode::*;
-
-fn get_input() -> String {
-    let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/17.txt");
-
-    println!("Reading {}", filename.display());
-
-    let input = fs::read_to_string(filename).expect("Unable to open file");
-
-    input
-}
 
 #[derive(Debug, Hash, Eq, Copy, Clone)]
 struct Vec2i {
@@ -368,20 +355,12 @@ fn to_ascii(input: &Vec<String>) -> Vec<Vec<isize>> {
     input.iter().map(|c| c.chars().map(|x| x as isize).collect::<Vec<_>>()).collect::<Vec<Vec<_>>>()
 }
 
-fn main() {
-    let input = get_input();
-
-    let program = &mut input
-        .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
-        .collect::<Vec<_>>();
-
-    let mut vm = IntcodeVM::new(program);
+fn part1(program: Vec<isize>) -> i32 {
+    let mut vm = IntcodeVM::new(&program);
 
     let mut input_queue = &mut VecDeque::new();
     let mut output_queue = &mut VecDeque::new();
 
-    // Part 1
     if VMStatus::Halted != run(&mut vm, &mut input_queue, &mut output_queue) {
         panic!("Intcode program failed");
     }
@@ -389,14 +368,25 @@ fn main() {
     let map = Map::new(output_queue);
     draw_view(&map);
 
-    let alignment = get_alignment(&map);
-    println!("Alignment: {}", alignment);
+    get_alignment(&map)
+}
 
-    // Part 2
+fn part2(mut program: Vec<isize>) -> Result<isize, ()> {
+    let mut vm = IntcodeVM::new(&program);
+
+    let mut input_queue = &mut VecDeque::new();
+    let mut output_queue = &mut VecDeque::new();
+
+    if VMStatus::Halted != run(&mut vm, &mut input_queue, &mut output_queue) {
+        return Err(());
+    }
+
+    let map = Map::new(output_queue);
+
     program[0] = 2;
     let robot_program = get_program(&map);
 
-    let mut vm = IntcodeVM::new(program);
+    let mut vm = IntcodeVM::new(&program);
 
     let mut input_queue = &mut VecDeque::new();
     let mut output_queue = &mut VecDeque::new();
@@ -431,11 +421,14 @@ fn main() {
     input_queue.push_back('n' as u8 as isize);
     input_queue.push_back(10);
 
-    if VMStatus::Ok == run(&mut vm, &mut input_queue, &mut output_queue) {
-        println!("output: {:?}", output_queue.back());
+    if VMStatus::Halted == run(&mut vm, &mut input_queue, &mut output_queue) {
+        return output_queue.pop_back().ok_or(());
     }
+
+    Err(())
 }
 
+intcode_task!(17.txt, part1, part2);
 #[cfg(test)]
 mod tests {
     use super::*;

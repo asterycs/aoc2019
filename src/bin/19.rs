@@ -1,23 +1,10 @@
 use std::{char::from_digit, collections::HashMap};
 use std::collections::VecDeque;
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 
+use common::*;
 use intcode::*;
 
 const SIZE: u32 = 100;
-
-fn get_input() -> String {
-    let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/19.txt");
-
-    println!("Reading {}", filename.display());
-
-    let input = fs::read_to_string(filename).expect("Unable to open file");
-
-    input
-}
 
 #[derive(Debug, Hash, Eq, Copy, Clone)]
 struct Vec2u {
@@ -69,13 +56,13 @@ fn draw_view(map: &Map) {
     print!("{}", to_draw);
 }
 
-fn part1(program: &Vec<isize>) -> u32 {
+fn part1(program: Vec<isize>) -> u32 {
     let coordinates = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
 
     for x in 0..50 {
         for y in 0..50 {
-            let mut vm = IntcodeVM::new(program);
+            let mut vm = IntcodeVM::new(&program);
 
             let input_queue = &mut VecDeque::new();
 
@@ -111,7 +98,7 @@ fn has_traction(coordinate: &Vec2u, program: &Vec<isize>) -> bool {
 
 fn fits_in_x(program: &Vec<isize>, upper_right_corner: &Vec2u) -> bool {
     let mut runner = *upper_right_corner;
-    for x in 0..SIZE {
+    for _x in 0..SIZE {
         runner.x -= 1;
 
         if !has_traction(&runner, program) {
@@ -124,7 +111,7 @@ fn fits_in_x(program: &Vec<isize>, upper_right_corner: &Vec2u) -> bool {
 
 fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
     let mut runner = *upper_left_corner;
-    for y in 0..SIZE-1 {
+    for _y in 0..SIZE-1 {
         runner.y += 1;
         if !has_traction(&runner, program) {
             return false;
@@ -134,11 +121,11 @@ fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
     true
 }
 
-fn part2(program: &Vec<isize>) -> u32 {
+fn part2(program: Vec<isize>) -> u32 {
     let mut upper_right_corner = Vec2u{x: 4, y: 3};
 
     loop {
-        if fits_in_x(program, &upper_right_corner) && fits_in_y(program, &Vec2u{x: upper_right_corner.x - SIZE + 1, y: upper_right_corner.y}) {
+        if fits_in_x(&program, &upper_right_corner) && fits_in_y(&program, &Vec2u{x: upper_right_corner.x - SIZE + 1, y: upper_right_corner.y}) {
             println!("found it!  Upper right: {:?}", upper_right_corner);
             break;
         }else{
@@ -147,7 +134,7 @@ fn part2(program: &Vec<isize>) -> u32 {
             loop {
                 let upper_right_corner_candidate = Vec2u{x: upper_right_corner.x + 1, y: upper_right_corner.y};
 
-                if !has_traction(&upper_right_corner_candidate, program) {
+                if !has_traction(&upper_right_corner_candidate, &program) {
                     break;
                 }
 
@@ -159,14 +146,4 @@ fn part2(program: &Vec<isize>) -> u32 {
     (upper_right_corner.x - SIZE + 1) * 10000 + upper_right_corner.y
 }
 
-fn main() {
-    let input = get_input();
-
-    let program = input
-        .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
-        .collect::<Vec<_>>();
-
-    println!("part 1: {}", part1(&program));
-    println!("part 2: {}", part2(&program));
-}
+intcode_task!(19.txt, part1, part2);
