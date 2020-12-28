@@ -545,3 +545,19 @@ pub fn run(
         return status;
     }
 }
+
+pub fn encode_ascii_v(input: &Vec<String>) -> Vec<Vec<isize>> {
+    input.iter().map(|s| encode_ascii(s)).collect()
+}
+
+pub fn encode_ascii(input: &String) -> Vec<isize> {
+    input.chars().map(|c| c as isize).collect()
+}
+
+pub fn decode_ascii_v(input: &Vec<Vec<isize>>) -> Vec<String> {
+    input.iter().map(|w| decode_ascii(w)).collect()
+}
+
+pub fn decode_ascii(input: &Vec<isize>) -> String {
+    input.iter().map(|c| *c as u8 as char).collect()
+}

@@ -351,10 +351,6 @@ fn get_program(map: &Map) -> Vec<Vec<String>> {
     vec![string_vec!["B","C","C","A","B","C","A","B","C","A"], a, b, c]
 }
 
-fn to_ascii(input: &Vec<String>) -> Vec<Vec<isize>> {
-    input.iter().map(|c| c.chars().map(|x| x as isize).collect::<Vec<_>>()).collect::<Vec<Vec<_>>>()
-}
-
 fn part1(program: Vec<isize>) -> i32 {
     let mut vm = IntcodeVM::new(&program);
 
@@ -396,7 +392,7 @@ fn part2(mut program: Vec<isize>) -> Result<isize, ()> {
     for i in 0..4 {
         input_queue.clear();
         output_queue.clear();
-        let as_ascii = to_ascii(&robot_program[i]);
+        let as_ascii = encode_ascii_v(&robot_program[i]);
 
         for command in as_ascii.into_iter() {
             for c in command.into_iter() {
