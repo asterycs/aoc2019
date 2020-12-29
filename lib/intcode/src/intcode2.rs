@@ -551,7 +551,7 @@ pub fn encode_ascii_v(input: &Vec<String>) -> Vec<Vec<isize>> {
 }
 
 pub fn encode_ascii(input: &String) -> Vec<isize> {
-    input.chars().map(|c| c as isize).collect()
+    input.trim_start().chars().map(|c| c as isize).collect()
 }
 
 pub fn decode_ascii_v(input: &Vec<Vec<isize>>) -> Vec<String> {
