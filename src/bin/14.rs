@@ -44,8 +44,8 @@ impl FromStr for Recipe {
         for ingredient in ingredients_in.split(",") {
             let ingredient = input_re.captures(ingredient).expect("Malformed recipe");
 
-            let amount = ingredient[1].parse::<usize>().unwrap();
-            let ingredient = ingredient[2].to_string();
+            let amount = ingredient.get(1).unwrap().as_str().parse::<usize>().unwrap();
+            let ingredient = ingredient.get(2).unwrap().as_str().to_string();
 
             ingredients.push(Component {
                 name: ingredient,

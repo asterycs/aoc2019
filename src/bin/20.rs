@@ -1,10 +1,9 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::{HashSet, HashMap, VecDeque, BinaryHeap};
 use std::hash::Hash;
+
+use common::*;
 
 type Map = Vec<Vec<Tile>>;
 
@@ -165,17 +164,6 @@ fn get_transfer_table(map: &Map, portals: &HashMap<String, Vec<Vec2u>>) -> HashM
     }
 
     transfer_table
-}
-
-fn get_input() -> String {
-    let filename = &mut PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    filename.push("inputs/20.txt");
-
-    println!("Reading {}", filename.display());
-
-    let input = fs::read_to_string(filename).expect("Unable to open file");
-
-    input
 }
 
 #[derive(Hash, PartialEq, Eq, Debug, Copy, Clone)]
@@ -364,15 +352,7 @@ fn part2(input: &String) -> u32 {
     min_distance
 }
 
-fn main() {
-    let input = get_input();
-
-    let steps = part1(&input);
-    println!("part 1 steps: {}", steps);
-
-    let steps = part2(&input);
-    println!("part 2 steps: {}", steps);
-}
+task!(20.txt, part1, part2);
 
 #[cfg(test)]
 mod tests {
