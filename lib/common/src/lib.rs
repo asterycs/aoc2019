@@ -29,10 +29,25 @@ macro_rules! intcode_task {
 
             let program = program.expect("Invalid intcode program");
 
-            println!("{} returned: {:?}", stringify!($func_name1), $func_name1(program.clone()));
+            println!("{} returned: {:?}", stringify!($func_name1), $func_name1(&program));
 
             $(
-                println!("{} returned: {:?}", stringify!($func_name2), $func_name2(program.clone()));
+                println!("{} returned: {:?}", stringify!($func_name2), $func_name2(&program));
+            )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! task {
+    ($input_file:expr, $func_name1:ident $(, $func_name2:ident)*) => {
+        fn main() {
+            let input = get_input(stringify!($input_file));
+
+            println!("{} returned: {:?}", stringify!($func_name1), $func_name1(&input));
+
+            $(
+                println!("{} returned: {:?}", stringify!($func_name2), $func_name2(&input));
             )*
         }
     };

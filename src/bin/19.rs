@@ -56,7 +56,7 @@ fn draw_view(map: &Map) {
     print!("{}", to_draw);
 }
 
-fn part1(program: Vec<isize>) -> u32 {
+fn part1(program: &Vec<isize>) -> u32 {
     let coordinates = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
 
@@ -121,7 +121,7 @@ fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
     true
 }
 
-fn part2(program: Vec<isize>) -> u32 {
+fn part2(program: &Vec<isize>) -> u32 {
     let mut upper_right_corner = Vec2u{x: 4, y: 3};
 
     loop {

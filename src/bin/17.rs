@@ -351,7 +351,7 @@ fn get_program(map: &Map) -> Vec<Vec<String>> {
     vec![string_vec!["B","C","C","A","B","C","A","B","C","A"], a, b, c]
 }
 
-fn part1(program: Vec<isize>) -> i32 {
+fn part1(program: &Vec<isize>) -> i32 {
     let mut vm = IntcodeVM::new(&program);
 
     let mut input_queue = &mut VecDeque::new();
@@ -367,7 +367,8 @@ fn part1(program: Vec<isize>) -> i32 {
     get_alignment(&map)
 }
 
-fn part2(mut program: Vec<isize>) -> Result<isize, ()> {
+fn part2(program: &Vec<isize>) -> Result<isize, ()> {
+    let mut program = program.clone();
     let mut vm = IntcodeVM::new(&program);
 
     let mut input_queue = &mut VecDeque::new();
