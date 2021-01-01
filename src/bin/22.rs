@@ -41,44 +41,32 @@ impl Op {
         }
     }
 
-    fn reverse_track(&self, index: usize, deck: &Vec<u64>) -> usize {
+    fn forward(&self, index: usize, deck_size: usize) -> usize {
         match self {
             Op::DealNew => {
-                let sz = deck.len();
-                let half = (sz / 2) as isize;
-                let index = index as isize;
-
-                if sz % 2 == 0 {
-                    return (-(index - half) + half - 1) as usize;
-                } else {
-                    return (-(index - half) + half) as usize;
-                }
+                return (deck_size - index - 1).rem_euclid(deck_size);
             },
             Op::DealIncrement(increment) => {
-                let sz = deck.len();
-                let x = modular_multiplicative_inverse(*increment as u64, sz as u64);
-
-                return (index * x as usize) % sz;
+                return mod_mul(index as u64, *increment as u64, deck_size as u64) as usize;
             },
             Op::Cut(offset) => {
-                let sz = deck.len();
+                return (index as isize - *offset).rem_euclid(deck_size as isize) as usize;
+            }
+        }
+    }
 
-                if *offset > 0 {
-                    let offset = *offset as usize;
-                    if index < offset {
-                        return index + sz - offset;
-                    } else {
-                        return index - offset;
-                    }
-                } else  {
-                    let offset = -offset as usize;
+    fn reverse(&self, index: usize, deck_size: usize) -> usize {
+        match self {
+            Op::DealNew => {
+                return (deck_size - index - 1).rem_euclid(deck_size);
+            },
+            Op::DealIncrement(increment) => {
+                let y = modular_multiplicative_inverse(*increment as u64, deck_size as u64);
 
-                    if sz - index > offset {
-                        return index + offset;
-                    } else {
-                        return index - (sz - offset);
-                    }
-                };
+                return mod_mul(index as u64, y as u64, deck_size as u64) as usize;
+            },
+            Op::Cut(offset) => {
+                return (index as isize + *offset).rem_euclid(deck_size as isize) as usize;
             }
         }
     }
@@ -104,22 +92,56 @@ impl From<&str> for Op {
     }
 }
 
+fn mod_mul(a: u64, b: u64, m: u64) -> u64 {
+    if a == 0 || b == 0 {
+        return 0;
+    }
+    if a == 1 {
+        return b;
+    }
+    if b == 1 {
+        return a;
+    }
+
+    let mut res = 0;
+    let mut a = a;
+    let mut b = b;
+
+    while b > 0 {
+        if b & 1 == 1 {
+            res = (res + a).rem_euclid(m);
+        }
+
+        b /= 2;
+        a = (a * 2).rem_euclid(m);
+    }
+
+    res
+}
+
 fn apply(operations: &Vec<Op>, deck: &mut Vec<u64>) {
     for op in operations.iter() {
         op.exec(deck);
     }
 }
 
+fn forward(index: usize, operations: &Vec<Op>, deck_size: usize) -> usize {
+    let mut index = index;
+    for op in operations.iter() {
+        index = op.forward(index, deck_size);
+    }
+
+    index
+}
+
 fn part1(input: &String) -> Result<usize,()> {
     let operations = input.lines().into_iter().map(|line| Op::from(line)).collect::<Vec<_>>();
 
-    let mut deck = (0..10007).collect::<Vec<_>>();
+    let deck_size = 10007;
     
-    apply(&operations, &mut deck);
+    let index = forward(2019, &operations, deck_size);
 
-    let position = deck.iter().position(|card| *card == 2019).unwrap();
-
-    Ok(position)
+    Ok(index)
 }
 
 // We can trace back the original number by inverting the shuffling operations in the list.
@@ -162,10 +184,10 @@ fn modular_multiplicative_inverse(n: u64, s: u64) -> u64 {
     return x0 as u64;
 }
 
-fn reverse(index: usize, operations: &Vec<Op>, deck: &mut Vec<u64>) -> usize {
+fn reverse(index: usize, operations: &Vec<Op>, deck_size: usize) -> usize {
     let mut index = index;
     for op in operations.iter().rev() {
-        index = op.reverse_track(index, deck);
+        index = op.reverse(index, deck_size);
     }
 
     index
@@ -174,11 +196,11 @@ fn reverse(index: usize, operations: &Vec<Op>, deck: &mut Vec<u64>) -> usize {
 fn part2(input: &String) -> Result<u64,()> {
     let operations = input.lines().into_iter().map(|line| Op::from(line)).collect::<Vec<_>>();
 
-    let mut deck = (0..10007).collect::<Vec<_>>();
-    
-    let index = reverse(2020, &operations, &mut deck);
+    let deck_size = 10007;
 
-    Ok(index as u64)
+    let index = reverse(346, &operations, deck_size);
+
+    Ok(mod_mul(2, index as u64, deck_size as u64) as u64)
 }
 
 task!(22.txt, part1, part2);
@@ -268,7 +290,47 @@ mod tests {
     }
 
     #[test]
-    fn part1_modular_multiplicative_inverse1() {
+    fn part1_test_forward_deal_new() {
+        let op = Op::DealNew;
+        let deck_size = 10;
+
+        let index = op.forward(0, deck_size);
+
+        assert_eq!(index, 9);
+    }
+
+    #[test]
+    fn part1_test_forward_cut_positive() {
+        let op = Op::Cut(3);
+        let deck_size = 10;
+
+        let index = op.forward(0, deck_size);
+
+        assert_eq!(index, 7);
+    }
+
+    #[test]
+    fn part1_test_forward_cut_negative() {
+        let op = Op::Cut(-4);
+        let deck_size = 10;
+
+        let index = op.forward(0, deck_size);
+
+        assert_eq!(index, 4);
+    }
+
+    #[test]
+    fn part1_test_forward_deal_increment() {
+        let op = Op::DealIncrement(3);
+        let deck_size = 10;
+
+        let index = op.forward(1, deck_size);
+
+        assert_eq!(index, 3);
+    }
+
+    #[test]
+    fn part2_modular_multiplicative_inverse1() {
         let y = modular_multiplicative_inverse(3, 8);
 
         assert_eq!(y, 3);
@@ -277,62 +339,83 @@ mod tests {
     #[test]
     fn part2_test_reverse_deal_increment() {
         let op = Op::DealIncrement(3);
-        let deck = vec![0, 7, 4, 1, 8, 5, 2, 9, 6, 3];
+        let deck_size = 10;
 
-        let index = op.reverse_track(2, &deck);
-
+        let index = op.reverse(2, deck_size);
         assert_eq!(index, 4);
+
+        let index = op.reverse(0, deck_size);
+        assert_eq!(index, 0);
+
+        let index = op.reverse(7, deck_size);
+        assert_eq!(index, 9);
     }
 
     #[test]
     fn part2_test_reverse_deal_new() {
         let op = Op::DealNew;
-        let deck = (0..10).collect();
+        let deck_size = 10;
 
-        let index = op.reverse_track(2, &deck);
+        let index = op.reverse(2, deck_size);
         assert_eq!(index, 7);
 
-        let index = op.reverse_track(9, &deck);
+        let index = op.reverse(9, deck_size);
         assert_eq!(index, 0);
 
-        let index = op.reverse_track(4, &deck);
+        let index = op.reverse(4, deck_size);
         assert_eq!(index, 5);
 
-        let deck = (0..3).collect();
+        let deck_size = 3;
 
-        let index = op.reverse_track(0, &deck);
+        let index = op.reverse(0, deck_size);
         assert_eq!(index, 2);
 
-        let index = op.reverse_track(2, &deck);
+        let index = op.reverse(2, deck_size);
         assert_eq!(index, 0);
 
-        let index = op.reverse_track(1, &deck);
+        let index = op.reverse(1, deck_size);
         assert_eq!(index, 1);
     }
 
     #[test]
     fn part2_test_reverse_cut() {
         let op = Op::Cut(2);
-        let deck = (0..10).collect();
+        let deck_size = 10;
 
-        let index = op.reverse_track(0, &deck);
-        assert_eq!(index, 8);
+        let index = op.reverse(0, deck_size);
+        assert_eq!(index, 2);
 
-        let index = op.reverse_track(1, &deck);
-        assert_eq!(index, 9);
+        let index = op.reverse(1, deck_size);
+        assert_eq!(index, 3);
 
-        let index = op.reverse_track(2, &deck);
-        assert_eq!(index, 0);
+        let index = op.reverse(9, deck_size);
+        assert_eq!(index, 1);
 
         let op = Op::Cut(-2);
 
-        let index = op.reverse_track(1, &deck);
-        assert_eq!(index, 3);
+        let index = op.reverse(0, deck_size);
+        assert_eq!(index, 8);
 
-        let index = op.reverse_track(9, &deck);
-        assert_eq!(index, 1);
+        let index = op.reverse(9, deck_size);
+        assert_eq!(index, 7);
 
-        let index = op.reverse_track(8, &deck);
-        assert_eq!(index, 0);
+        let index = op.reverse(8, deck_size);
+        assert_eq!(index, 6);
+    }
+
+    #[test]
+    fn part2_test_mod_mul() {
+        assert_eq!(mod_mul(1, 1, 2), 1);
+        assert_eq!(mod_mul(2, 2, 2), 0);
+        assert_eq!(mod_mul(2, 3, 5), 1);
+        assert_eq!(mod_mul(1, 0, 2), 0);
+        assert_eq!(mod_mul(0, 0, 2), 0);
+        assert_eq!(mod_mul(11, 6, 4), 2);
+        assert_eq!(mod_mul(27, 81, 99), 9);
+
+        assert_eq!(mod_mul(634591239837, 9837683454, 254), 26);
+        assert_eq!(mod_mul(634591239837683454, 9837683454, 254), 248);
+
+        assert_eq!(mod_mul(10123465234878998, 65746311545646431, 10005412336548794), 4652135769797794);
     }
 }
