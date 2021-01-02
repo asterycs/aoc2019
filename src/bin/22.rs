@@ -67,17 +67,17 @@ impl Op {
         let lc_new;
         match self {
             Op::DealNew => {
-                lc_new = LinearCongruence{a: -1, b: lc.m as i64 - 1, m: lc.m};
+                lc_new = LinearCongruence{a: -1, b: lc.m as i128 - 1, m: lc.m};
             },
             Op::DealIncrement(increment) => {
-                assert!((*increment as u64) < lc.m);
+                assert!((*increment as i128) < lc.m);
 
-                lc_new = LinearCongruence{a: *increment as i64, b: 0, m: lc.m};
+                lc_new = LinearCongruence{a: *increment as i128, b: 0, m: lc.m};
             },
             Op::Cut(offset) => {
-                assert!((offset.abs() as u64) < lc.m);
+                assert!((offset.abs() as i128) < lc.m);
 
-                lc_new = LinearCongruence{a: 1, b: -*offset as i64, m: lc.m};
+                lc_new = LinearCongruence{a: 1, b: -*offset as i128, m: lc.m};
             }
         }
 
@@ -92,7 +92,7 @@ impl Op {
             Op::DealIncrement(increment) => {
                 assert!(*increment < deck_size);
 
-                let y = modular_multiplicative_inverse(*increment as u64, deck_size as u64);
+                let y = modular_multiplicative_inverse(*increment as i128, deck_size as i128);
 
                 return mod_mul(index as i64, y as i64, deck_size as u64) as usize;
             },
@@ -102,6 +102,29 @@ impl Op {
                 return (index as isize + *offset).rem_euclid(deck_size as isize) as usize;
             }
         }
+    }
+
+    fn reverse_collect(&self, lc: &mut LinearCongruence) {
+        let lc_new;
+        match self {
+            Op::DealNew => {
+                lc_new = LinearCongruence{a: -1, b: lc.m as i128 - 1, m: lc.m};
+            },
+            Op::DealIncrement(increment) => {
+                assert!((*increment as i128) < lc.m);
+
+                let y = modular_multiplicative_inverse(*increment as i128, lc.m as i128);
+
+                lc_new = LinearCongruence{a: y, b: 0, m: lc.m};
+            },
+            Op::Cut(offset) => {
+                assert!((offset.abs() as i128) < lc.m);
+
+                lc_new = LinearCongruence{a: 1, b: *offset as i128, m: lc.m};
+            }
+        }
+
+        *lc = lc_new.combine(lc);
     }
 }
 
@@ -125,6 +148,8 @@ impl From<&str> for Op {
     }
 }
 
+
+// Peasant multiplication
 fn mod_mul(a: i64, b: i64, m: u64) -> i64 {
     if a == 0 || b == 0 {
         return 0;
@@ -148,26 +173,26 @@ fn mod_mul(a: i64, b: i64, m: u64) -> i64 {
 }
 
 // From https://en.wikipedia.org/wiki/Modular_exponentiation
-fn mod_pow(a: i64, b: u64, m: u64) -> i64 {
+fn mod_pow(a: u128, b: u128, m: u128) -> u128 {
     if m == 1 {
         return 0;
     }
 
-    let t = m as i128 - 1;
+    let t = m - 1;
     let t = t.checked_mul(t);
     assert_ne!(t, None);
 
     let mut res = 1;
-    let mut a = a.rem_euclid(m as i64);
+    let mut a = a.rem_euclid(m);
     let mut b = b;
 
     while b > 0 {
         if b.rem_euclid(2) == 1 {
-            res = mod_mul(res, a, m);
+            res = (res * a).rem_euclid(m);
         }
 
         b /= 2;
-        a = mod_mul(a, a, m);
+        a = (a * a).rem_euclid(m);
     }
     
     res
@@ -189,10 +214,20 @@ fn forward(index: usize, operations: &Vec<Op>, deck_size: usize) -> usize {
 }
 
 fn forward_collect(operations: &Vec<Op>, deck_size: usize) -> LinearCongruence {
-    let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+    let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
     for op in operations.iter() {
         op.forward_collect(&mut lc);
+    }
+
+    lc
+}
+
+fn reverse_collect(operations: &Vec<Op>, deck_size: usize) -> LinearCongruence {
+    let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
+
+    for op in operations.iter().rev() {
+        op.reverse_collect(&mut lc);
     }
 
     lc
@@ -218,12 +253,12 @@ fn part1(input: &String) -> Result<usize,()> {
 //    z * n = 1 (mod s).
 //    We can find z using the extended euclidean algorithm, and then eliminate n in (1).
 //    Algorithm adapted from https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm#Computing_multiplicative_inverses_in_modular_structures.
-fn modular_multiplicative_inverse(n: u64, s: u64) -> u64 {
-    let mut x0: i64 = 0;
-    let mut x1: i64 = 1;
+fn modular_multiplicative_inverse(n: i128, s: i128) -> i128 {
+    let mut x0: i128 = 0;
+    let mut x1: i128 = 1;
 
-    let mut r0 = s as i64;
-    let mut r1 = n as i64;
+    let mut r0 = s as i128;
+    let mut r1 = n as i128;
 
     while r1 != 0 {
         let quotient = r0 / r1;
@@ -242,10 +277,10 @@ fn modular_multiplicative_inverse(n: u64, s: u64) -> u64 {
     }
 
     if x0 < 0 {
-        x0 += s as i64;
+        x0 += s;
     }
 
-    return x0 as u64;
+    return x0;
 }
 
 fn reverse(index: usize, operations: &Vec<Op>, deck_size: usize) -> usize {
@@ -260,14 +295,14 @@ fn reverse(index: usize, operations: &Vec<Op>, deck_size: usize) -> usize {
 #[derive(Debug)]
 struct LinearCongruence {
     // a*x + b (mod m)
-    a: i64,
-    b: i64,
-    m: u64
+    a: i128,
+    b: i128,
+    m: i128
 }
 
 impl LinearCongruence {
-    fn apply(&self, x: i64) -> i64 {
-        (x * self.a + self.b).rem_euclid(self.m as i64)
+    fn apply(&self, x: i128) -> i128 {
+        (x * self.a + self.b).rem_euclid(self.m)
     }
 
     fn combine(&self, other: &LinearCongruence) -> LinearCongruence {
@@ -275,27 +310,26 @@ impl LinearCongruence {
 
         let m = self.m;
 
-        LinearCongruence{a: mod_mul(self.a, other.a, m), b: (mod_mul(self.a, other.b, m) + self.b).rem_euclid(m as i64), m: m}
+        LinearCongruence{a: mod_mul(self.a as i64, other.a as i64, m as u64) as i128, b: (mod_mul(self.a as i64, other.b as i64, m as u64) as i128 + self.b).rem_euclid(m as i128), m: m}
     }
 
     fn skip_forward(&self, times: u64) -> LinearCongruence {
-        let apt = mod_pow(self.a, times, self.m);
+        let apt = mod_pow(self.a as u128, times as u128, self.m as u128) as i128;
         let a = apt;
-        let b = (apt - 1).rem_euclid((self.a - 1) * self.m as i64) * self.b;
-        let b = b / (self.a - 1);
+        let b = mod_mul((apt - 1) as i64, modular_multiplicative_inverse(self.a - 1, self.m) as i64, self.m as u64) as i128 * self.b;
         let m = self.m;
 
         LinearCongruence{a, b, m}
     }
 
     fn skip_backward(&self, times: u64) -> LinearCongruence {
-        let a_inv = modular_multiplicative_inverse(self.a as u64, self.m) as i64;
-        let b_inv = -mod_mul(a_inv, self.b, self.m);
-        let a_inv_pt = mod_pow(a_inv, times, self.m);
-        let a = a_inv_pt;
+        let a_inv = modular_multiplicative_inverse(self.a as i128, self.m) as i64;
+        let b_inv = -mod_mul(a_inv, self.b as i64, self.m as u64);
+        let a_inv_pt = mod_pow(a_inv as u128, times as u128, self.m as u128);
+        let a = a_inv_pt as i128;
         let b = (a_inv_pt as i128 - 1) * b_inv as i128;
-        let num = modular_multiplicative_inverse(self.a as u64 - 1, self.m) as i128;
-        let b = mod_mul(num as i64, b as i64, self.m) as i64;
+        let num = modular_multiplicative_inverse(a_inv as i128 - 1, self.m);
+        let b = mod_mul(num as i64, b as i64, self.m as u64) as i128;
         let m = self.m;
 
         LinearCongruence{a, b, m}
@@ -304,12 +338,12 @@ impl LinearCongruence {
 
 fn part2(input: &String) -> Result<u64,()> {
     let operations = input.lines().into_iter().map(|line| Op::from(line)).collect::<Vec<_>>();
-    let deck_size = 119315717514047;
+    let deck_size = 119_315_717_514_047;
 
-    let lc = forward_collect(&operations, deck_size);
+    let lc = reverse_collect(&operations, deck_size);
 
-    let times = 101741582076661;
-    let lc = lc.skip_backward(times);
+    let times = 101_741_582_076_661;
+    let lc = lc.skip_forward(times);
 
     let start_index = lc.apply(2020);
 
@@ -452,7 +486,7 @@ mod tests {
         let op = Op::DealNew;
         let deck_size: usize = 7;
 
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         op.forward_collect(&mut lc);
 
@@ -472,7 +506,7 @@ mod tests {
         let op = Op::Cut(3);
         let deck_size: usize = 7;
         let index = 0;
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         op.forward_collect(&mut lc);
 
@@ -486,7 +520,7 @@ mod tests {
         let op = Op::Cut(-4);
         let deck_size: usize = 7;
         let index = 0;
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         op.forward_collect(&mut lc);
 
@@ -500,7 +534,7 @@ mod tests {
         let op = Op::DealIncrement(3);
         let deck_size: usize = 7;
         let index = 1;
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         op.forward_collect(&mut lc);
 
@@ -521,7 +555,7 @@ mod tests {
         apply(&ops, &mut deck);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -537,7 +571,7 @@ mod tests {
         apply(&ops, &mut deck);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -553,7 +587,7 @@ mod tests {
         apply(&ops, &mut deck);
         
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -569,7 +603,7 @@ mod tests {
         apply(&ops, &mut deck);
         
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -693,7 +727,7 @@ mod tests {
             apply(&ops, &mut deck);
         }
 
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         for op in ops.iter() {
             op.forward_collect(&mut lc);
@@ -702,7 +736,7 @@ mod tests {
         let lc = lc.skip_forward(repetitions);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -717,7 +751,7 @@ mod tests {
             apply(&ops, &mut deck);
         }
 
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         for op in ops.iter() {
             op.forward_collect(&mut lc);
@@ -726,7 +760,7 @@ mod tests {
         let lc = lc.skip_forward(repetitions);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(deck[i] as i64) as usize, i);
+            assert_eq!(lc.apply(deck[i] as i128) as usize, i);
         }
     }
 
@@ -737,7 +771,7 @@ mod tests {
         let mut deck = (0..deck_size as u64).collect();
         let repetitions = 33;
 
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         for op in ops.iter() {
             op.forward_collect(&mut lc);
@@ -752,7 +786,7 @@ mod tests {
         let lc = lc.skip_backward(repetitions);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(i as i64) as u64, deck[i]);
+            assert_eq!(lc.apply(i as i128) as u64, deck[i]);
         }
     }
 
@@ -763,7 +797,7 @@ mod tests {
         let deck = (0..deck_size as u64).collect::<Vec<_>>();
         let repetitions = 101741582076661;
 
-        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as u64};
+        let mut lc = LinearCongruence{a: 1, b: 0, m: deck_size as i128};
 
         for op in ops.iter() {
             op.forward_collect(&mut lc);
@@ -771,12 +805,33 @@ mod tests {
 
         let lc = lc.skip_forward(repetitions);
 
-        let deck = deck.into_iter().map(|x| lc.apply(x as i64) as u64).collect::<Vec<_>>();
+        let deck = deck.into_iter().map(|x| lc.apply(x as i128) as u64).collect::<Vec<_>>();
 
         let lc = lc.skip_backward(repetitions);
 
         for i in 0..deck_size {
-            assert_eq!(lc.apply(i as i64) as u64, deck[i]);
+            assert_eq!(lc.apply(i as i128) as u64, deck[i]);
+        }
+    }
+
+    #[test]
+    fn part2_test_repeat_forward_reverse_cascade() {
+        let ops = vec![Op::DealNew, Op::Cut(-2), Op::DealIncrement(5), Op::Cut(5), Op::Cut(-4), Op::DealIncrement(4), Op::Cut(3), Op::DealIncrement(2), Op::DealIncrement(2), Op::Cut(-1)];
+        let deck_size = 7usize;
+        let deck = (0..deck_size as u64).collect::<Vec<_>>();
+        let repetitions = 101741582076661;
+
+        let lc_forward = forward_collect(&ops, deck_size);
+        let lc_reverse = reverse_collect(&ops, deck_size);
+
+        let lc_forward = lc_forward.skip_forward(repetitions);
+        let lc_reverse = lc_reverse.skip_forward(repetitions);
+
+        let deck = deck.into_iter().map(|x| lc_forward.apply(x as i128) as u64).collect::<Vec<_>>();
+        let deck = deck.into_iter().map(|x| lc_reverse.apply(x as i128) as u64).collect::<Vec<_>>();
+
+        for i in 0..deck_size {
+            assert_eq!(deck[i], i as u64);
         }
     }
 }
