@@ -15,7 +15,7 @@ impl PartialEq for Vec2u {
     }
 }
 
-fn part1(program: &Vec<isize>) -> Result<(),()> {
+fn part1(program: &Vec<i64>) -> Result<(),()> {
     let mut output_queue = VecDeque::new();
     let mut vm = IntcodeVM::new(&program);
 
@@ -39,7 +39,7 @@ WALK
     Ok(())
 }
 
-fn part2(program: &Vec<isize>) -> Result<(),()> {
+fn part2(program: &Vec<i64>) -> Result<(),()> {
     let mut output_queue = VecDeque::new();
     let mut vm = IntcodeVM::new(&program);
 

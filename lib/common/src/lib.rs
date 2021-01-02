@@ -13,10 +13,10 @@ pub fn get_input(input_file: &str) -> String {
     input
 }
 
-pub fn to_intcode(input: String) -> Result<Vec<isize>, ParseIntError> {
+pub fn to_intcode(input: String) -> Result<Vec<i64>, ParseIntError> {
     input
         .split(",")
-        .map(|x| x.parse::<isize>())
+        .map(|x| x.parse::<i64>())
         .collect()
 }
 

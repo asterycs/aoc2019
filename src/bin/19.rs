@@ -25,7 +25,7 @@ struct Map {
 }
 
 impl Map {
-    fn new(coordinates: &VecDeque<Vec2u>, output: &VecDeque<isize>) -> Map {
+    fn new(coordinates: &VecDeque<Vec2u>, output: &VecDeque<i64>) -> Map {
         let mut data = HashMap::new();
         let mut size = Vec2u{x: 0, y: 0};
 
@@ -56,7 +56,7 @@ fn draw_view(map: &Map) {
     print!("{}", to_draw);
 }
 
-fn part1(program: &Vec<isize>) -> u32 {
+fn part1(program: &Vec<i64>) -> i64 {
     let coordinates = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
 
@@ -66,8 +66,8 @@ fn part1(program: &Vec<isize>) -> u32 {
 
             let input_queue = &mut VecDeque::new();
 
-            input_queue.push_back(x as isize);
-            input_queue.push_back(y as isize);
+            input_queue.push_back(x as i64);
+            input_queue.push_back(y as i64);
 
             run(&mut vm, input_queue, output_queue);
 
@@ -78,17 +78,15 @@ fn part1(program: &Vec<isize>) -> u32 {
     let map = Map::new(coordinates, output_queue);
     draw_view(&map);
 
-    let sum: isize = output_queue.iter().sum();
-
-    sum as u32
+    output_queue.iter().sum()
 }
 
-fn has_traction(coordinate: &Vec2u, program: &Vec<isize>) -> bool {
+fn has_traction(coordinate: &Vec2u, program: &Vec<i64>) -> bool {
     let input_queue = &mut VecDeque::new();
     let output_queue = &mut VecDeque::new();
 
-    input_queue.push_back(coordinate.x as isize);
-    input_queue.push_back(coordinate.y as isize);
+    input_queue.push_back(coordinate.x as i64);
+    input_queue.push_back(coordinate.y as i64);
 
     let mut vm = IntcodeVM::new(program);
     run(&mut vm, input_queue, output_queue);
@@ -96,7 +94,7 @@ fn has_traction(coordinate: &Vec2u, program: &Vec<isize>) -> bool {
     output_queue.pop_front().unwrap() == 1
 }
 
-fn fits_in_x(program: &Vec<isize>, upper_right_corner: &Vec2u) -> bool {
+fn fits_in_x(program: &Vec<i64>, upper_right_corner: &Vec2u) -> bool {
     let mut runner = *upper_right_corner;
     for _x in 0..SIZE {
         runner.x -= 1;
@@ -109,7 +107,7 @@ fn fits_in_x(program: &Vec<isize>, upper_right_corner: &Vec2u) -> bool {
     true
 }
 
-fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
+fn fits_in_y(program: &Vec<i64>, upper_left_corner: &Vec2u) -> bool {
     let mut runner = *upper_left_corner;
     for _y in 0..SIZE-1 {
         runner.y += 1;
@@ -121,7 +119,7 @@ fn fits_in_y(program: &Vec<isize>, upper_left_corner: &Vec2u) -> bool {
     true
 }
 
-fn part2(program: &Vec<isize>) -> u32 {
+fn part2(program: &Vec<i64>) -> u32 {
     let mut upper_right_corner = Vec2u{x: 4, y: 3};
 
     loop {

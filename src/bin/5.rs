@@ -15,7 +15,7 @@ fn main() {
 
     let program = &mut input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
     let mut input_buffer = vec![1].into_iter().collect();

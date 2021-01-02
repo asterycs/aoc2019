@@ -28,8 +28,8 @@ impl PartialEq for Coord {
     }
 }
 
-impl From<isize> for Tile {
-    fn from(x: isize) -> Self {
+impl From<i64> for Tile {
+    fn from(x: i64) -> Self {
         match x {
             0 => Tile::Empty,
             1 => Tile::Wall,
@@ -71,7 +71,7 @@ impl GameState {
     }
 }
 
-fn update_game_state(output: &VecDeque<isize>, game_state: &mut GameState) {
+fn update_game_state(output: &VecDeque<i64>, game_state: &mut GameState) {
     for c in output.clone().into_iter().collect::<Vec<_>>().chunks(3) {
         let x = c[0];
         let y = c[1];
@@ -132,7 +132,7 @@ fn main() {
 
     let program = &mut input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
     // Part 1

@@ -30,8 +30,8 @@ enum CommandResult {
     FoundTank = 2,
 }
 
-impl From<isize> for Command {
-    fn from(x: isize) -> Self {
+impl From<i64> for Command {
+    fn from(x: i64) -> Self {
         match x {
             0 => Command::MoveNorth,
             1 => Command::MoveWest,
@@ -42,8 +42,8 @@ impl From<isize> for Command {
     }
 }
 
-impl From<isize> for CommandResult {
-    fn from(x: isize) -> Self {
+impl From<i64> for CommandResult {
+    fn from(x: i64) -> Self {
         match x {
             0 => CommandResult::HitWall,
             1 => CommandResult::Ok,
@@ -76,8 +76,8 @@ impl std::ops::Add for Coord {
     }
 }
 
-impl From<isize> for Tile {
-    fn from(x: isize) -> Self {
+impl From<i64> for Tile {
+    fn from(x: i64) -> Self {
         match x {
             0 => Tile::Wall,
             1 => Tile::Empty,
@@ -129,9 +129,9 @@ impl SearchState {
     fn advance(&mut self, vm: &mut IntcodeVM, command: Command) -> CommandResult {
         let intcode_command = get_internal_command_code(command);
 
-        let mut input_queue = vec![intcode_command as isize]
+        let mut input_queue = vec![intcode_command as i64]
             .into_iter()
-            .collect::<VecDeque<isize>>();
+            .collect::<VecDeque<_>>();
         let mut output_queue = &mut VecDeque::new();
 
         run(vm, &mut input_queue, &mut output_queue);
@@ -264,7 +264,7 @@ fn main() {
 
     let program = &mut input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
     let mut vm = IntcodeVM::new(program);
@@ -281,9 +281,9 @@ fn main() {
         println!("heading: {:?}", command);
 
         if result == CommandResult::HitWall {
-            command = Command::from((command as isize + 1) % 4);
+            command = Command::from((command as i64 + 1) % 4);
         } else {
-            command = Command::from((command as isize + 4 - 1) % 4);
+            command = Command::from((command as i64 + 4 - 1) % 4);
         }
 
         if search_state.robot_pos == origin && command == Command::MoveNorth {

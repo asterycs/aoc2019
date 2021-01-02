@@ -14,7 +14,7 @@ struct RobotState {
 }
 
 impl RobotState {
-    fn turn(&mut self, dir: isize) {
+    fn turn(&mut self, dir: i64) {
         let dir = if dir == 1 { 1 }else{ -1 };
 
         self.dir += dir;
@@ -44,8 +44,8 @@ enum Color {
     White,
 }
 
-impl From<isize> for Color {
-    fn from(i: isize) -> Color {
+impl From<i64> for Color {
+    fn from(i: i64) -> Color {
         match i {
             0 => Color::Black,
             1 => Color::White,
@@ -54,8 +54,8 @@ impl From<isize> for Color {
     }
 }
 
-impl Into<isize> for &Color {
-    fn into(self) -> isize {
+impl Into<i64> for &Color {
+    fn into(self) -> i64 {
         match self {
             Color::Black => 0,
             Color::White => 1,
@@ -96,13 +96,13 @@ fn draw(map: &HashMap<(isize,isize), Color>) {
 
 }
 
-fn run_painter(init_tile_color: isize, program: &Vec<isize>) -> HashMap<(isize, isize), Color> {
-    let input_queue: &mut VecDeque<isize> = &mut vec![init_tile_color].into_iter().collect();
-    let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
+fn run_painter(init_tile_color: i64, program: &Vec<i64>) -> HashMap<(isize, isize), Color> {
+    let input_queue = &mut vec![init_tile_color].into_iter().collect::<VecDeque<_>>();
+    let output_queue = &mut VecDeque::new();
 
-    let mut program_state = IntcodeVM::new(&program);
+    let mut program_state = IntcodeVM::new(program);
     let mut robot_state = RobotState { x: 0, y: 0, dir: 0 };
-    let mut hull: HashMap<(isize, isize), Color> = HashMap::new();
+    let mut hull = HashMap::new();
 
     loop {
         let result = run(&mut program_state, &mut *input_queue, &mut *output_queue);
@@ -135,7 +135,7 @@ fn main() {
 
     let program = input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
     

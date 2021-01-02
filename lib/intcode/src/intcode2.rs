@@ -41,10 +41,10 @@ impl Mode {
 
     fn get_value(
         &self,
-        program: &HashMap<usize, isize>,
+        program: &HashMap<usize, i64>,
         instruction_ptr: usize,
-        relative_base: isize,
-    ) -> isize {
+        relative_base: i64,
+    ) -> i64 {
         match self {
             Mode::Immediate => program[&instruction_ptr],
             Mode::Position => {
@@ -52,7 +52,7 @@ impl Mode {
                 *program.get(&t).unwrap_or(&0)
             }
             Mode::Relative => {
-                let t = (program[&instruction_ptr] + relative_base as isize) as usize;
+                let t = (program[&instruction_ptr] + relative_base) as usize;
                 *program.get(&t).unwrap_or(&0)
             }
         }
@@ -60,14 +60,14 @@ impl Mode {
 
     fn get_addr(
         &self,
-        program: &HashMap<usize, isize>,
+        program: &HashMap<usize, i64>,
         instruction_ptr: usize,
-        relative_base: isize,
+        relative_base: i64,
     ) -> usize {
         match self {
             Mode::Immediate => panic!("Invalid mode!"),
             Mode::Position => program[&instruction_ptr] as usize,
-            Mode::Relative => (program[&instruction_ptr] + relative_base as isize) as usize,
+            Mode::Relative => (program[&instruction_ptr] + relative_base) as usize,
         }
     }
 }
@@ -76,15 +76,15 @@ trait Instruction {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        input_buffer: &mut VecDeque<isize>,
-        output_buffer: &mut VecDeque<isize>,
+        input_buffer: &mut VecDeque<i64>,
+        output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus;
     fn get_len(&self) -> usize;
 }
 
 struct Add {
-    lhs: isize,
-    rhs: isize,
+    lhs: i64,
+    rhs: i64,
     dest: usize,
 }
 
@@ -106,8 +106,8 @@ impl Instruction for Add {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         vm.memory.insert(self.dest, self.lhs + self.rhs);
 
@@ -124,8 +124,8 @@ impl Instruction for Add {
 }
 
 struct Mult {
-    lhs: isize,
-    rhs: isize,
+    lhs: i64,
+    rhs: i64,
     dest: usize,
 }
 
@@ -147,8 +147,8 @@ impl Instruction for Mult {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         vm.memory.insert(self.dest, self.lhs * self.rhs);
 
@@ -165,8 +165,8 @@ impl Instruction for Mult {
 }
 
 struct LessThan {
-    lhs: isize,
-    rhs: isize,
+    lhs: i64,
+    rhs: i64,
     dest: usize,
 }
 
@@ -188,8 +188,8 @@ impl Instruction for LessThan {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         let res = match self.lhs < self.rhs {
             true => 1,
@@ -211,8 +211,8 @@ impl Instruction for LessThan {
 }
 
 struct Equals {
-    lhs: isize,
-    rhs: isize,
+    lhs: i64,
+    rhs: i64,
     dest: usize,
 }
 
@@ -234,8 +234,8 @@ impl Instruction for Equals {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         let res = match self.lhs == self.rhs {
             true => 1,
@@ -276,8 +276,8 @@ impl Instruction for Input {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         if input_buffer.is_empty() {
             VMStatus::EmptyInputBuffer
@@ -298,7 +298,7 @@ impl Instruction for Input {
 }
 
 struct Output {
-    val: isize,
+    val: i64,
 }
 
 impl Output {
@@ -317,8 +317,8 @@ impl Instruction for Output {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         vm.instruction_ptr += self.get_len();
 
@@ -333,7 +333,7 @@ impl Instruction for Output {
 }
 
 struct JumpIfTrue {
-    operand: isize,
+    operand: i64,
     dest: usize,
 }
 
@@ -354,8 +354,8 @@ impl Instruction for JumpIfTrue {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         match self.operand {
             0 => vm.instruction_ptr += self.get_len(),
@@ -371,7 +371,7 @@ impl Instruction for JumpIfTrue {
 }
 
 struct JumpIfFalse {
-    operand: isize,
+    operand: i64,
     dest: usize,
 }
 
@@ -392,8 +392,8 @@ impl Instruction for JumpIfFalse {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         match self.operand {
             0 => vm.instruction_ptr = self.dest,
@@ -409,7 +409,7 @@ impl Instruction for JumpIfFalse {
 }
 
 struct UpdateRelativeBase {
-    offset: isize,
+    offset: i64,
 }
 
 impl UpdateRelativeBase {
@@ -428,8 +428,8 @@ impl Instruction for UpdateRelativeBase {
     fn execute(
         &self,
         vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         vm.instruction_ptr += self.get_len();
         vm.relative_base += self.offset;
@@ -454,8 +454,8 @@ impl Instruction for Halt {
     fn execute(
         &self,
         _vm: &mut IntcodeVM,
-        _input_buffer: &mut VecDeque<isize>,
-        _output_buffer: &mut VecDeque<isize>,
+        _input_buffer: &mut VecDeque<i64>,
+        _output_buffer: &mut VecDeque<i64>,
     ) -> VMStatus {
         VMStatus::Halted
     }
@@ -512,12 +512,12 @@ pub enum VMStatus {
 #[derive(Debug, Clone)]
 pub struct IntcodeVM {
     instruction_ptr: usize,
-    relative_base: isize,
-    pub memory: HashMap<usize, isize>,
+    relative_base: i64,
+    pub memory: HashMap<usize, i64>,
 }
 
 impl IntcodeVM {
-    pub fn new(program: &Vec<isize>) -> IntcodeVM {
+    pub fn new(program: &Vec<i64>) -> IntcodeVM {
         IntcodeVM {
             instruction_ptr: 0,
             relative_base: 0,
@@ -532,8 +532,8 @@ impl IntcodeVM {
 
 pub fn run(
     vm: &mut IntcodeVM,
-    input_buffer: &mut VecDeque<isize>,
-    output_buffer: &mut VecDeque<isize>,
+    input_buffer: &mut VecDeque<i64>,
+    output_buffer: &mut VecDeque<i64>,
 ) -> VMStatus {
     loop {
         let instr = Instruction::next(vm);
@@ -546,18 +546,18 @@ pub fn run(
     }
 }
 
-pub fn encode_ascii_v(input: &Vec<String>) -> Vec<Vec<isize>> {
+pub fn encode_ascii_v(input: &Vec<String>) -> Vec<Vec<i64>> {
     input.iter().map(|s| encode_ascii(s)).collect()
 }
 
-pub fn encode_ascii(input: &String) -> Vec<isize> {
-    input.trim_start().chars().map(|c| c as isize).collect()
+pub fn encode_ascii(input: &String) -> Vec<i64> {
+    input.trim_start().chars().map(|c| c as i64).collect()
 }
 
-pub fn decode_ascii_v(input: &Vec<Vec<isize>>) -> Vec<String> {
+pub fn decode_ascii_v(input: &Vec<Vec<i64>>) -> Vec<String> {
     input.iter().map(|w| decode_ascii(w)).collect()
 }
 
-pub fn decode_ascii(input: &Vec<isize>) -> String {
+pub fn decode_ascii(input: &Vec<i64>) -> String {
     input.iter().map(|c| *c as u8 as char).collect()
 }

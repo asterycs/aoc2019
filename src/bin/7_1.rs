@@ -8,13 +8,13 @@ use intcode::*;
 
 #[derive(Debug, Clone)]
 struct Permuter {
-    x: Vec<isize>,
+    x: Vec<i64>,
     c: Vec<usize>,
     i: usize,
 }
 
 impl Permuter {
-    fn new(init: Vec<isize>) -> Permuter {
+    fn new(init: Vec<i64>) -> Permuter {
         Permuter {
             c: vec![0; init.len()],
             x: init,
@@ -64,17 +64,17 @@ fn main() {
 
     let program = input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
     let mut x = Permuter::new(vec![0, 1, 2, 3, 4]);
 
     let mut max_sequence = x.clone();
-    let mut max_power: isize = 0;
+    let mut max_power = 0;
 
     loop {
-        let mut input_queue: VecDeque<isize> = VecDeque::new();
-        let mut output_queue: VecDeque<isize> = vec![0].into_iter().collect();
+        let mut input_queue = VecDeque::new();
+        let mut output_queue = vec![0].into_iter().collect::<VecDeque<_>>();
 
         for i in 0..5 {
             let mut vm = IntcodeVM::new(&program);

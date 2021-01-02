@@ -15,19 +15,19 @@ fn main() {
 
     let program = input
         .split(",")
-        .map(|x| x.parse::<isize>().unwrap())
+        .map(|x| x.parse::<i64>().unwrap())
         .collect::<Vec<_>>();
 
-    let input_queue: &mut VecDeque<isize> = &mut vec![1].into_iter().collect();
-    let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
+    let input_queue = &mut vec![1].into_iter().collect();
+    let output_queue = &mut VecDeque::new();
 
     let mut vm = IntcodeVM::new(&program);
     run(&mut vm, &mut *input_queue, &mut *output_queue);
 
     println!("Part 1: {:?}", output_queue);
 
-    let input_queue: &mut VecDeque<isize> = &mut vec![2].into_iter().collect();
-    let output_queue: &mut VecDeque<isize> = &mut VecDeque::new();
+    let input_queue = &mut vec![2].into_iter().collect();
+    let output_queue = &mut VecDeque::new();
 
     let mut vm = IntcodeVM::new(&program);
     run(&mut vm, &mut *input_queue, &mut *output_queue);

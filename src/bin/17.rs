@@ -87,13 +87,13 @@ impl Into<i8> for Heading {
 #[derive(Clone)]
 struct Map {
     size: Vec2u,
-    data: HashMap<Vec2i, isize>,
+    data: HashMap<Vec2i, i64>,
     robot_position: Vec2i,
     robot_heading: Heading
 }
 
 impl Map {
-    fn new(output: &VecDeque<isize>) -> Map {
+    fn new(output: &VecDeque<i64>) -> Map {
         let mut data = HashMap::new();
         let mut current_position = Vec2i { x: 0, y: 0 };
         let mut size = Vec2u { x: 0, y: 0 };
@@ -204,7 +204,7 @@ fn get_alignment(map: &Map) -> i32 {
     alignment
 }
 
-fn get_initial_heading(map_value: isize) -> Heading {
+fn get_initial_heading(map_value: i64) -> Heading {
     match map_value {
         60 => Heading::West,
         62 => Heading::East,
@@ -351,7 +351,7 @@ fn get_program(map: &Map) -> Vec<Vec<String>> {
     vec![string_vec!["B","C","C","A","B","C","A","B","C","A"], a, b, c]
 }
 
-fn part1(program: &Vec<isize>) -> i32 {
+fn part1(program: &Vec<i64>) -> i32 {
     let mut vm = IntcodeVM::new(&program);
 
     let mut input_queue = &mut VecDeque::new();
@@ -367,7 +367,7 @@ fn part1(program: &Vec<isize>) -> i32 {
     get_alignment(&map)
 }
 
-fn part2(program: &Vec<isize>) -> Result<isize, ()> {
+fn part2(program: &Vec<i64>) -> Result<i64, ()> {
     let mut program = program.clone();
     let mut vm = IntcodeVM::new(&program);
 
@@ -415,7 +415,7 @@ fn part2(program: &Vec<isize>) -> Result<isize, ()> {
     input_queue.clear();
     output_queue.clear();
 
-    input_queue.push_back('n' as u8 as isize);
+    input_queue.push_back('n' as u8 as i64);
     input_queue.push_back(10);
 
     if VMStatus::Halted == run(&mut vm, &mut input_queue, &mut output_queue) {
