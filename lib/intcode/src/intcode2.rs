@@ -550,7 +550,7 @@ pub fn encode_ascii_v(input: &Vec<String>) -> Vec<Vec<i64>> {
     input.iter().map(|s| encode_ascii(s)).collect()
 }
 
-pub fn encode_ascii(input: &String) -> Vec<i64> {
+pub fn encode_ascii(input: &str) -> Vec<i64> {
     input.trim_start().chars().map(|c| c as i64).collect()
 }
 
