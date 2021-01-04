@@ -74,7 +74,7 @@ fn advance(map: &Map) -> Map {
     new_map
 }
 
-fn is_on_outer_northern_edge(row: usize, col: usize) -> bool {
+fn is_on_outer_northern_edge(row: usize, _col: usize) -> bool {
     if row == 0 {
         return true;
     }
@@ -82,7 +82,7 @@ fn is_on_outer_northern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_outwards_north(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_outwards_north(map: &RecursiveMap, level: usize) -> i32 {
     if let Tile::Bug = map[level - 1][1][2] {
         return 1;
     }
@@ -90,7 +90,7 @@ fn check_outwards_north(map: &RecursiveMap, level: usize, row: usize, col: usize
     return 0;
 }
 
-fn is_on_outer_eastern_edge(row: usize, col: usize) -> bool {
+fn is_on_outer_eastern_edge(_row: usize, col: usize) -> bool {
     if col == 4 {
         return true;
     }
@@ -98,7 +98,7 @@ fn is_on_outer_eastern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_outwards_east(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_outwards_east(map: &RecursiveMap, level: usize) -> i32 {
     if let Tile::Bug = map[level - 1][2][3] {
         return 1;
     }
@@ -106,7 +106,7 @@ fn check_outwards_east(map: &RecursiveMap, level: usize, row: usize, col: usize)
     return 0;
 }
 
-fn is_on_outer_southern_edge(row: usize, col: usize) -> bool {
+fn is_on_outer_southern_edge(row: usize, _col: usize) -> bool {
     if row == 4 {
         return true;
     }
@@ -114,7 +114,7 @@ fn is_on_outer_southern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_outwards_south(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_outwards_south(map: &RecursiveMap, level: usize) -> i32 {
     if let Tile::Bug = map[level - 1][3][2] {
         return 1;
     }
@@ -122,7 +122,7 @@ fn check_outwards_south(map: &RecursiveMap, level: usize, row: usize, col: usize
     return 0;
 }
 
-fn is_on_outer_western_edge(row: usize, col: usize) -> bool {
+fn is_on_outer_western_edge(_row: usize, col: usize) -> bool {
     if col == 0 {
         return true;
     }
@@ -130,7 +130,7 @@ fn is_on_outer_western_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_outwards_west(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_outwards_west(map: &RecursiveMap, level: usize) -> i32 {
     if let Tile::Bug = map[level - 1][2][1] {
         return 1;
     }
@@ -146,7 +146,7 @@ fn is_on_inner_northern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_inwards_north(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_inwards_north(map: &RecursiveMap, level: usize) -> i32 {
     let mut neighbours = 0;
 
     let level = &map[level + 1];
@@ -165,7 +165,7 @@ fn is_on_inner_eastern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_inwards_east(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_inwards_east(map: &RecursiveMap, level: usize) -> i32 {
     let mut neighbours = 0;
 
     let level = &map[level + 1];
@@ -186,7 +186,7 @@ fn is_on_inner_southern_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_inwards_south(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_inwards_south(map: &RecursiveMap, level: usize) -> i32 {
     let mut neighbours = 0;
 
     let level = &map[level + 1];
@@ -205,7 +205,7 @@ fn is_on_inner_western_edge(row: usize, col: usize) -> bool {
     return false;
 }
 
-fn check_inwards_west(map: &RecursiveMap, level: usize, row: usize, col: usize) -> i32 {
+fn check_inwards_west(map: &RecursiveMap, level: usize) -> i32 {
     let mut neighbours = 0;
 
     let level = &map[level + 1];
@@ -230,29 +230,29 @@ fn advance_recursive(map: &RecursiveMap) -> RecursiveMap {
                 let mut neighbours = get_neighbours(&map[level], r, c, false);
 
                 if is_on_outer_northern_edge(r, c) && level > 0 {
-                    neighbours += check_outwards_north(map, level, r, c);
+                    neighbours += check_outwards_north(map, level);
                 }
                 if is_on_outer_eastern_edge(r, c) && level > 0 {
-                    neighbours += check_outwards_east(map, level, r, c);
+                    neighbours += check_outwards_east(map, level);
                 }
                 if is_on_outer_southern_edge(r, c) && level > 0 {
-                    neighbours += check_outwards_south(map, level, r, c);
+                    neighbours += check_outwards_south(map, level);
                 }
                 if is_on_outer_western_edge(r, c) && level > 0 {
-                    neighbours += check_outwards_west(map, level, r, c);
+                    neighbours += check_outwards_west(map, level);
                 }
 
                 if is_on_inner_northern_edge(r, c) && level < map.len() - 1 {
-                    neighbours += check_inwards_north(map, level, r, c);
+                    neighbours += check_inwards_north(map, level);
                 }
                 if is_on_inner_eastern_edge(r, c) && level < map.len() - 1 {
-                    neighbours += check_inwards_east(map, level, r, c);
+                    neighbours += check_inwards_east(map, level);
                 }
                 if is_on_inner_southern_edge(r, c) && level < map.len() - 1 {
-                    neighbours += check_inwards_south(map, level, r, c);
+                    neighbours += check_inwards_south(map, level);
                 }
                 if is_on_inner_western_edge(r, c) && level < map.len() - 1 {
-                    neighbours += check_inwards_west(map, level, r, c);
+                    neighbours += check_inwards_west(map, level);
                 }
 
                 if new_map[level][r][c] == Tile::Bug && neighbours != 1 {
@@ -299,9 +299,6 @@ fn part1(input: &String) -> Result<i64, ()> {
             return Ok(diversity);
         }
     }
-
-    
-    Err(())
 }
 
 fn get_bugs(level: &Map) -> i32 {
@@ -335,7 +332,7 @@ fn expand(map: &mut RecursiveMap) {
     }
 }
 
-fn print(map: &RecursiveMap) {
+fn _print(map: &RecursiveMap) {
     for (level_idx, level) in map.iter().enumerate() {
         println!("Level idx: {}", level_idx);
         for row in level.iter() {

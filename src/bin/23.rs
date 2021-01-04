@@ -3,18 +3,6 @@ use std::collections::{VecDeque};
 use common::*;
 use intcode::*;
 
-#[derive(Debug, Hash, Eq, Copy, Clone)]
-struct Vec2u {
-    x: u32,
-    y: u32,
-}
-
-impl PartialEq for Vec2u {
-    fn eq(&self, r: &Vec2u) -> bool {
-        self.x == r.x && self.y == r.y
-    }
-}
-
 struct Computer {
     vm: IntcodeVM,
     input_queue: VecDeque<i64>,
@@ -92,8 +80,6 @@ fn part1(program: &Vec<i64>) -> Result<i64,()> {
 
         direct_packages(&mut packet_queues, &mut computers);
     }
-
-    Err(())
 }
 
 fn is_idle(packet_queues: &Vec<Vec<Packet>>) -> bool {
@@ -143,8 +129,6 @@ fn part2(program: &Vec<i64>) -> Result<i64,()> {
 
         direct_packages(&mut packet_queues, &mut computers);
     }
-
-    Err(())
 }
 
 intcode_task!(23.txt, part1, part2);

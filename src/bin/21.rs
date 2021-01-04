@@ -3,18 +3,6 @@ use std::collections::VecDeque;
 use common::*;
 use intcode::*;
 
-#[derive(Debug, Hash, Eq, Copy, Clone)]
-struct Vec2u {
-    x: u32,
-    y: u32,
-}
-
-impl PartialEq for Vec2u {
-    fn eq(&self, r: &Vec2u) -> bool {
-        self.x == r.x && self.y == r.y
-    }
-}
-
 fn part1(program: &Vec<i64>) -> Result<(),()> {
     let mut output_queue = VecDeque::new();
     let mut vm = IntcodeVM::new(&program);
